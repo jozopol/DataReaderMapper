@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataReaderMapper", "DataRea
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataReaderMapper.Tests", "DataReaderMapperTests\DataReaderMapper.Tests.csproj", "{3EE8F786-6669-4FA4-8729-CB5F0B0BF6B8}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Benchmarks", "Benchmarks\Benchmarks.csproj", "{32FBD0FC-A343-4D77-B7B1-25DCED2CF921}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{3EE8F786-6669-4FA4-8729-CB5F0B0BF6B8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3EE8F786-6669-4FA4-8729-CB5F0B0BF6B8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3EE8F786-6669-4FA4-8729-CB5F0B0BF6B8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{32FBD0FC-A343-4D77-B7B1-25DCED2CF921}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{32FBD0FC-A343-4D77-B7B1-25DCED2CF921}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{32FBD0FC-A343-4D77-B7B1-25DCED2CF921}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{32FBD0FC-A343-4D77-B7B1-25DCED2CF921}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
