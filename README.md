@@ -1,6 +1,13 @@
 # DataReaderMapper
 A mapper for classes which implement IDataReader interface. DataReaderMapper maps DTO properties based on attribute decoration using Mappable/MappableSource attributes which allow you to specify custom column names from which the property should be mapped.
 
+Currently supporting:
+Properties (primitive/nested classes) excluding collection properties
+
+TODO list:
+customizable convertors for specified types
+collection properties
+
 All benchmarks are created via https://github.com/dotnet/BenchmarkDotNet and are included in the source files.
 
 <h2>Mapping</h2>
