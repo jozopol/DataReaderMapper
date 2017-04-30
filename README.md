@@ -5,13 +5,6 @@ All benchmarks are created via https://github.com/dotnet/BenchmarkDotNet and are
 
 <h2>Mapping</h2>
 
-<style type="text/css">
-	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
-	td, th { padding: 6px 13px; border: 1px solid #ddd; }
-	tr { background-color: #fff; border-top: 1px solid #ccc; }
-	tr:nth-child(even) { background: #f8f8f8; }
-</style>
-
 <body>
 <pre><code>
 BenchmarkDotNet=v0.10.5, OS=Windows 10.0.10240
@@ -36,12 +29,6 @@ Runtime=Clr
 
 <p>- performance test of the Configure method for classes with 1/5/10 properties (primitive types).</p>
 
-<style type="text/css">
-	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
-	td, th { padding: 6px 13px; border: 1px solid #ddd; }
-	tr { background-color: #fff; border-top: 1px solid #ccc; }
-	tr:nth-child(even) { background: #f8f8f8; }
-</style>
 
 <body>
 <pre><code>
