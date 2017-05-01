@@ -89,33 +89,64 @@ namespace DataReaderMapper.Tests
 
             }
         }
+
+        [TestMethod]
+        public void Should_Correctly_Map_StringAsDateTime_Column_From_Reader()
+        {
+            using (var reader = DataReaderTestBuilder.BuildReader())
+            {
+                reader.Read();                
+
+                var actual = _sut.Map<TestDto>(reader);
+
+                Assert.AreEqual(DataReaderTestBuilder.DateTimeAsStringColumn, actual.DateTimeAsStringColumn);
+            }
+        }
+
+        [TestMethod]
+        public void Should_Correctly_Map_IntegerAsString_Column_From_Reader()
+        {
+            using (var reader = DataReaderTestBuilder.BuildReader())
+            {
+                reader.Read();
+                var actual = _sut.Map<TestDto>(reader);
+
+                Assert.AreEqual(DataReaderTestBuilder.IntegerAsString, actual.IntegerAsString);
+            }
+        }
     }
 
-    internal class TestDto
-    {      
+    public class TestDto
+    {
+        [Mappable("IntegerAsString")]
+        public int IntegerAsString { get; set; }
+
         [Mappable("StringColumn")]
-        internal string StringValue { get; set; }
+        public string StringValue { get; set; }
 
         [Mappable("IntegerColumn")]
-        internal int IntegerValue { get; set; }
+        public int IntegerValue { get; set; }
 
         [Mappable("DateTimeColumn")]
-        internal DateTime DateValue { get; set; }
+        public DateTime DateValue { get; set; }
+
+        [Mappable("DateTimeAsStringColumn")]
+        public DateTime DateTimeAsStringColumn { get; set; }
 
         [MappableSource]
-        internal NestedTestDto NestedClass { get; set; }
+        public NestedTestDto NestedClass { get; set; }
 
-        internal string PropertyWithoutMappableAttribute { get; set; }
+        public string PropertyWithoutMappableAttribute { get; set; }
 
-        internal class NestedTestDto
+        public class NestedTestDto
         {
             [Mappable("NestedStringColumn")]
-            internal string StringValue { get; set; }
+            public string StringValue { get; set; }
 
             [MappableSource]
-            internal NestedNestedTestDto NestedNestedClass { get; set; }
+            public NestedNestedTestDto NestedNestedClass { get; set; }
 
-            internal class NestedNestedTestDto
+            public class NestedNestedTestDto
             {
                 [Mappable("NestedNestedStringColumn")]
                 public string StringValue { get; set; }
@@ -128,6 +159,8 @@ namespace DataReaderMapper.Tests
         internal const string ExpectedStringColumnValue = "ExpectedValue";
         internal const int ExpectedIntegerColumnValue = int.MaxValue;
         internal static DateTime ExpectedDateTimeColumnValue = DateTime.MaxValue;
+        internal static DateTime DateTimeAsStringColumn = new DateTime(9999, 12, 31);
+        internal const int IntegerAsString = int.MaxValue;
 
         internal static DataTableReader BuildReader()
         {
@@ -137,6 +170,8 @@ namespace DataReaderMapper.Tests
             dataTable.Columns.Add(new DataColumn("DateTimeColumn", typeof(DateTime)));
             dataTable.Columns.Add(new DataColumn("NestedStringColumn", typeof(string)));
             dataTable.Columns.Add(new DataColumn("NestedNestedStringColumn", typeof(string)));
+            dataTable.Columns.Add(new DataColumn("DateTimeAsStringColumn", typeof(string)));
+            dataTable.Columns.Add(new DataColumn("IntegerAsString", typeof(string)));
 
             var dataRow = dataTable.NewRow();
             dataRow["StringColumn"] = ExpectedStringColumnValue;
@@ -144,6 +179,8 @@ namespace DataReaderMapper.Tests
             dataRow["DateTimeColumn"] = ExpectedDateTimeColumnValue;
             dataRow["NestedStringColumn"] = ExpectedStringColumnValue;
             dataRow["NestedNestedStringColumn"] = ExpectedStringColumnValue;
+            dataRow["DateTimeAsStringColumn"] = DateTimeAsStringColumn.ToString(); //31.12.9999
+            dataRow["IntegerAsString"] = IntegerAsString;
             dataTable.Rows.Add(dataRow);
 
             return dataTable.CreateDataReader();

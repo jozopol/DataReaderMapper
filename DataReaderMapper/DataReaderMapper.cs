@@ -88,10 +88,51 @@ namespace DataReaderMapper
                 var mappableAttribute = (MappableAttribute)Attribute.GetCustomAttribute(property, typeof(MappableAttribute));
                 var recordColumnAccessor = Expression.MakeIndex(dataReaderParameter, indexerProperty, new[] { Expression.Constant(mappableAttribute.ReaderColumnName) });
 
-                var assignProperty = Expression.Assign(instanceProperty, Expression.Convert(recordColumnAccessor, property.PropertyType)); //TODO add customizable convertors?
+                Expression convertorExpression;
+
+                if (mappableAttribute.ReaderColumnName == "DateTimeAsStringColumn")
+                {
+                    convertorExpression = BuildConvertorExpression(recordColumnAccessor);
+                }
+                else if(mappableAttribute.ReaderColumnName == "IntegerAsString")
+                {
+                    convertorExpression = BuildConvertorExpression2(recordColumnAccessor);
+                }
+                else
+                {
+                    convertorExpression = Expression.Convert(recordColumnAccessor, property.PropertyType);
+                }
+
+                var assignProperty = Expression.Assign(instanceProperty, convertorExpression); 
 
                 yield return assignProperty;
             }
+        }
+
+        private static Expression BuildConvertorExpression(Expression sourceToConvertExpression)
+        {
+            Expression convertorExpression;
+            MethodCallExpression sourceToStringExpression = ObjectToStringExpression(sourceToConvertExpression);
+
+            Expression<Func<string, DateTime>> lamb = (string s) => DateTime.Parse(s);
+            convertorExpression = Expression.Invoke(lamb, sourceToStringExpression);
+            return convertorExpression;
+        }
+
+        private static MethodCallExpression ObjectToStringExpression(Expression sourceToConvertExpression)
+        {
+            var toStringMethod = typeof(object).GetMethod("ToString");
+            return Expression.Call(sourceToConvertExpression, toStringMethod);
+        }
+
+        private static Expression BuildConvertorExpression2(Expression sourceToConvertExpression)
+        {
+            Expression convertorExpression;
+            MethodCallExpression sourceToStringExpression = ObjectToStringExpression(sourceToConvertExpression);
+
+            Expression<Func<string, int>> lamb = (string s) => Int32.Parse(s);
+            convertorExpression = Expression.Invoke(lamb, sourceToStringExpression);
+            return convertorExpression;
         }
     }
 }
