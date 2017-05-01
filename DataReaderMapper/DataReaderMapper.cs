@@ -10,13 +10,14 @@ namespace DataReaderMapper
 {
     public class DataReaderMapper<TReader> where TReader : IDataReader
     {
-        private Dictionary<Type, Delegate> _mapperCache = new Dictionary<Type, Delegate>();
+        private Dictionary<Type, Tuple<Delegate, Expression>> _mapperCache = new Dictionary<Type, Tuple<Delegate, Expression>>();
 
-        private static Dictionary<Type, Expression> _convertors = new Dictionary<Type, Expression>()
+        private Dictionary<Type, Expression> _convertors;
+
+        public DataReaderMapper(Dictionary<Type, Expression> customTypeConvertors = null)
         {
-            { typeof(DateTime), (Expression<Func<string,DateTime>>)((string s) => DateTime.Parse(s))},
-            { typeof(Int32), (Expression<Func<string, int>>)((string s) => Int32.Parse(s))}
-        };
+            _convertors = customTypeConvertors ?? TypeConvertors.DefaultConvertors;
+        }
 
         public void Configure<TTarget>() where TTarget : class, new()
         {
@@ -30,12 +31,29 @@ namespace DataReaderMapper
         {
             if (_mapperCache.ContainsKey(typeof(TTarget)))
             {
-                return ((Func<TReader, TTarget>)_mapperCache[typeof(TTarget)])(source);
+                return GetMapperFunction<TTarget>()(source);
             }
             return new TTarget();
+        }        
+
+        public IEnumerable<TTarget>MapAll<TTarget>(TReader source) where TTarget : class, new()
+        {
+            if (!_mapperCache.ContainsKey(typeof(TTarget)))
+                yield break;
+
+            Func<TReader, TTarget> mapperFunction = GetMapperFunction<TTarget>();
+            while (source.Read())
+            {
+                yield return mapperFunction(source);
+            }           
         }
 
-        private Delegate BuildMapperExpression<TTarget>() where TTarget : class, new()
+        private Func<TReader, TTarget> GetMapperFunction<TTarget>() where TTarget : class, new()
+        {
+            return ((Func<TReader, TTarget>)_mapperCache[typeof(TTarget)].Item1);
+        }
+
+        private Tuple<Delegate, Expression> BuildMapperExpression<TTarget>() where TTarget : class, new()
         {            
             var targetInstanceParameter = Expression.Variable(typeof(TTarget));
             var dataReaderParameter = Expression.Parameter(typeof(TReader));          
@@ -53,7 +71,7 @@ namespace DataReaderMapper
             var expressionBody = Expression.Block(targetInstanceParameter.Type, new[] { targetInstanceParameter }, statements.ToArray());
 
             var lambda = Expression.Lambda<Func<TReader, TTarget>>(expressionBody, dataReaderParameter);
-            return lambda.Compile();
+            return Tuple.Create<Delegate, Expression>(lambda.Compile(), lambda);
         }
 
         private List<Expression> BuildComplexPropertyAccessors(Type targetType, Expression rootObjectInstance, Expression dataReaderParameter, PropertyInfo indexerProperty)
@@ -92,17 +110,22 @@ namespace DataReaderMapper
         }
         
 
-        private static Expression BuildConvertorExpression(Type typeToConvertTo, bool useCustomConvertor, IndexExpression recordColumnAccessor)
+        private Expression BuildConvertorExpression(Type typeToConvertTo, bool useCustomConvertor, IndexExpression recordColumnAccessor)
         {
             return useCustomConvertor
                 ? BuildConvertorExpression(recordColumnAccessor, typeToConvertTo)
                 : Expression.Convert(recordColumnAccessor, typeToConvertTo);
         }
 
-        private static Expression BuildConvertorExpression(Expression sourceToConvertExpression, Type conversionTargetType)
+        private Expression BuildConvertorExpression(Expression sourceToConvertExpression, Type conversionTargetType)
         {
-            MethodCallExpression sourceToStringExpression = ObjectToStringExpression(sourceToConvertExpression);
-            return Expression.Invoke(_convertors[conversionTargetType], sourceToStringExpression);
+            if (_convertors.TryGetValue(conversionTargetType, out Expression convertorExpression))
+            {
+                MethodCallExpression sourceToStringExpression = ObjectToStringExpression(sourceToConvertExpression);
+                return Expression.Invoke(convertorExpression, sourceToStringExpression);
+            }
+
+            throw new InvalidOperationException($"The conversion to type {conversionTargetType.FullName} is not supported.");
         }
 
         private static MethodCallExpression ObjectToStringExpression(Expression sourceToConvertExpression)
