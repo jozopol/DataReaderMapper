@@ -5,9 +5,9 @@ using BenchmarkDotNet.Jobs;
 
 namespace Benchmarks
 {
-    public class BenchmarkConfiguration : ManualConfig
+    public class MappingConfiguration : ManualConfig
     {
-        public BenchmarkConfiguration()
+        public MappingConfiguration()
         {
             Add(MemoryDiagnoser.Default);
             Add(
@@ -16,6 +16,20 @@ namespace Benchmarks
             .With(Jit.RyuJit)
             .With(Runtime.Clr)
             .WithId("Mapper_Map"));
+        }
+    }
+
+    public class ConfigureConfiguration : ManualConfig
+    {
+        public ConfigureConfiguration()
+        {
+            Add(MemoryDiagnoser.Default);
+            Add(
+            Job.Clr
+            .With(Platform.X64)
+            .With(Jit.RyuJit)
+            .With(Runtime.Clr)
+            .WithId("Mapper_Configure"));
         }
     }
 }

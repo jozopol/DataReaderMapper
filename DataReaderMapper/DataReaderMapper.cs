@@ -12,6 +12,11 @@ namespace DataReaderMapper
     {
         private Dictionary<Type, Delegate> _mapperCache = new Dictionary<Type, Delegate>();
 
+        private static Dictionary<Type, Expression> _convertors = new Dictionary<Type, Expression>()
+        {
+            { typeof(DateTime), (Expression<Func<string,DateTime>>)((string s) => DateTime.Parse(s))},
+            { typeof(Int32), (Expression<Func<string, int>>)((string s) => Int32.Parse(s))}
+        };
 
         public void Configure<TTarget>() where TTarget : class, new()
         {
@@ -31,46 +36,36 @@ namespace DataReaderMapper
         }
 
         private Delegate BuildMapperExpression<TTarget>() where TTarget : class, new()
-        {
+        {            
             var targetInstanceParameter = Expression.Variable(typeof(TTarget));
-            var dataReaderParameter = Expression.Parameter(typeof(TReader));
-
-            var createInstance = Expression.Assign(targetInstanceParameter, Expression.New(typeof(TTarget))); // instance = new TTarget(); 
-
-            var statements = new List<Expression>();
-            statements.Add(createInstance);
+            var dataReaderParameter = Expression.Parameter(typeof(TReader));          
 
             // IDataReader instance has to implement "Item" property which is used for index access to IDataReader's table columns
             var indexerProperty = typeof(TReader).GetProperty("Item", new[] { typeof(string) });
 
+            var statements = new List<Expression>();
             // build the expressions for primitive (string/int/..) properties
-            var primitivePropertyAccessors = BuildPrimitivePropertyAccessors(dataReaderParameter, typeof(TTarget), targetInstanceParameter, indexerProperty);
-            statements.AddRange(primitivePropertyAccessors);
-
+            statements.Add(BuildPrimitiveMappings(typeof(TTarget), targetInstanceParameter, dataReaderParameter, indexerProperty));
             // build the expressions for complex (classes) properties
-            var complexPropertyAccessors = BuildComplexPropertyAccessors(typeof(TTarget), targetInstanceParameter, dataReaderParameter, indexerProperty);
-            statements.AddRange(complexPropertyAccessors);
+            statements.AddRange(BuildComplexPropertyAccessors(typeof(TTarget), targetInstanceParameter, dataReaderParameter, indexerProperty));
 
             statements.Add(targetInstanceParameter); // return the mapped object
-
             var expressionBody = Expression.Block(targetInstanceParameter.Type, new[] { targetInstanceParameter }, statements.ToArray());
 
             var lambda = Expression.Lambda<Func<TReader, TTarget>>(expressionBody, dataReaderParameter);
             return lambda.Compile();
         }
 
-        private List<Expression> BuildComplexPropertyAccessors(Type targetType, Expression targetInstanceParameter, Expression dataReaderParameter, PropertyInfo indexerProperty)
+        private List<Expression> BuildComplexPropertyAccessors(Type targetType, Expression rootObjectInstance, Expression dataReaderParameter, PropertyInfo indexerProperty)
         {
             var statements = new List<Expression>();
             foreach (var property in targetType.GetRuntimeProperties().Where(x => x.IsDefined(typeof(MappableSourceAttribute), true)))
             {
-                var targetPropertyInstance = Expression.Property(targetInstanceParameter, property); // RootObject.ComplexProperty                
-                var createNewInstance = Expression.Assign(targetPropertyInstance, Expression.New(property.PropertyType)); // RootObject.ComplexProperty = new typeof(complexProperty)
-                statements.Add(createNewInstance);
+                var targetPropertyInstance = Expression.Property(rootObjectInstance, property);
 
-                var nestedPropertiesAccessors = BuildPrimitivePropertyAccessors(dataReaderParameter, property.PropertyType, targetPropertyInstance, indexerProperty);
-                statements.AddRange(nestedPropertiesAccessors);
-
+                var mappings = BuildPrimitiveMappings(property.PropertyType, targetPropertyInstance, dataReaderParameter, indexerProperty);
+                statements.Add(mappings);
+                
                 var complexPropertyAccessors = BuildComplexPropertyAccessors(property.PropertyType, targetPropertyInstance, dataReaderParameter, indexerProperty);
                 statements.AddRange(complexPropertyAccessors);
             }
@@ -78,61 +73,42 @@ namespace DataReaderMapper
             return statements;
         }
 
-        private static IEnumerable<Expression> BuildPrimitivePropertyAccessors(Expression dataReaderParameter, Type mappingTargetType, Expression targetPropertyInstance, PropertyInfo indexerProperty)
+        private Expression BuildPrimitiveMappings(Type targetType, Expression targetInstance, Expression dataReaderParameter, PropertyInfo indexerProperty)
         {
-            foreach (var property in mappingTargetType.GetRuntimeProperties().Where(x => x.IsDefined(typeof(MappableAttribute), true)))
+            var bindings = new List<MemberAssignment>(); 
+            foreach (var property in targetType.GetRuntimeProperties().Where(x => x.IsDefined(typeof(MappableAttribute), true)))
             {
-                var instanceProperty = Expression.Property(targetPropertyInstance, property);
-
-                // DataRecord row[properties mappable atribute column name]
                 var mappableAttribute = (MappableAttribute)Attribute.GetCustomAttribute(property, typeof(MappableAttribute));
+
                 var recordColumnAccessor = Expression.MakeIndex(dataReaderParameter, indexerProperty, new[] { Expression.Constant(mappableAttribute.ReaderColumnName) });
 
-                Expression convertorExpression;
+                var convertorExpression = BuildConvertorExpression(property.PropertyType, mappableAttribute.UseCustomConvertor, recordColumnAccessor);
 
-                if (mappableAttribute.ReaderColumnName == "DateTimeAsStringColumn")
-                {
-                    convertorExpression = BuildConvertorExpression(recordColumnAccessor);
-                }
-                else if(mappableAttribute.ReaderColumnName == "IntegerAsString")
-                {
-                    convertorExpression = BuildConvertorExpression2(recordColumnAccessor);
-                }
-                else
-                {
-                    convertorExpression = Expression.Convert(recordColumnAccessor, property.PropertyType);
-                }
-
-                var assignProperty = Expression.Assign(instanceProperty, convertorExpression); 
-
-                yield return assignProperty;
+                bindings.Add(Expression.Bind(property.GetMethod, convertorExpression));
             }
+
+            var initMember = Expression.MemberInit(Expression.New(targetType), bindings);
+            return Expression.Assign(targetInstance, initMember);
+        }
+        
+
+        private static Expression BuildConvertorExpression(Type typeToConvertTo, bool useCustomConvertor, IndexExpression recordColumnAccessor)
+        {
+            return useCustomConvertor
+                ? BuildConvertorExpression(recordColumnAccessor, typeToConvertTo)
+                : Expression.Convert(recordColumnAccessor, typeToConvertTo);
         }
 
-        private static Expression BuildConvertorExpression(Expression sourceToConvertExpression)
+        private static Expression BuildConvertorExpression(Expression sourceToConvertExpression, Type conversionTargetType)
         {
-            Expression convertorExpression;
             MethodCallExpression sourceToStringExpression = ObjectToStringExpression(sourceToConvertExpression);
-
-            Expression<Func<string, DateTime>> lamb = (string s) => DateTime.Parse(s);
-            convertorExpression = Expression.Invoke(lamb, sourceToStringExpression);
-            return convertorExpression;
+            return Expression.Invoke(_convertors[conversionTargetType], sourceToStringExpression);
         }
 
         private static MethodCallExpression ObjectToStringExpression(Expression sourceToConvertExpression)
         {
             var toStringMethod = typeof(object).GetMethod("ToString");
             return Expression.Call(sourceToConvertExpression, toStringMethod);
-        }
-
-        private static Expression BuildConvertorExpression2(Expression sourceToConvertExpression)
-        {
-            Expression convertorExpression;
-            MethodCallExpression sourceToStringExpression = ObjectToStringExpression(sourceToConvertExpression);
-
-            Expression<Func<string, int>> lamb = (string s) => Int32.Parse(s);
-            convertorExpression = Expression.Invoke(lamb, sourceToStringExpression);
-            return convertorExpression;
         }
     }
 }

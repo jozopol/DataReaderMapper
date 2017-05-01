@@ -6,7 +6,7 @@ using static Benchmarks.Mapper_Configure;
 
 namespace Benchmarks
 {
-    [Config(typeof(BenchmarkConfiguration))]
+    [Config(typeof(MappingConfiguration))]
     public class Mapper_Mapping
     {
         private DataReaderMapper<DataTableReader> _drm = new DataReaderMapper<DataTableReader>();
@@ -69,11 +69,11 @@ namespace Benchmarks
             nr["3"] = "19/04/2014";
             nr["4"] = "Another kind of text";
             nr["5"] = "Name";
-            nr["6"] = "Field";
-            nr["7"] = "AnotherOne";
-            nr["8"] = "Beach";
-            nr["9"] = "Pumpkin";
-            nr["10"] = "What";
+            nr["6"] = 1;
+            nr["7"] = 1;
+            nr["8"] = 1;
+            nr["9"] = 1;
+            nr["10"] = 1;
 
             dt.Rows.Add(nr);
         }
@@ -96,7 +96,7 @@ namespace Benchmarks
         }
     }
 
-    [Config(typeof(BenchmarkConfiguration))]
+    [Config(typeof(ConfigureConfiguration))]
     public class Mapper_Configure
     {
         private DataReaderMapper<DataTableReader> _mapper = new DataReaderMapper<DataTableReader>();

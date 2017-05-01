@@ -2,6 +2,7 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Mapping;
 using System.Data;
+using System.Linq.Expressions;
 
 namespace DataReaderMapper.Tests
 {  
@@ -118,7 +119,7 @@ namespace DataReaderMapper.Tests
 
     public class TestDto
     {
-        [Mappable("IntegerAsString")]
+        [Mappable("IntegerAsString", UseCustomConvertor = true)]
         public int IntegerAsString { get; set; }
 
         [Mappable("StringColumn")]
@@ -130,7 +131,7 @@ namespace DataReaderMapper.Tests
         [Mappable("DateTimeColumn")]
         public DateTime DateValue { get; set; }
 
-        [Mappable("DateTimeAsStringColumn")]
+        [Mappable("DateTimeAsStringColumn", UseCustomConvertor = true)]
         public DateTime DateTimeAsStringColumn { get; set; }
 
         [MappableSource]
