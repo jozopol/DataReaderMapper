@@ -138,7 +138,12 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="BenchmarkConfiguration.cs" />
-    <Compile Include="Benchmarks.cs" />
+    <Compile Include="Benchmarks\Mapper_Configure.cs" />
+    <Compile Include="Benchmarks\Mapper_Map.cs" />
+    <Compile Include="Benchmarks\Mapper_MapAll.cs" />
+    <Compile Include="Benchmarks\DTOs\Dto5Prop.cs" />
+    <Compile Include="Benchmarks\DTOs\Dto10Prop.cs" />
+    <Compile Include="Benchmarks\DTOs\Dto1Prop.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

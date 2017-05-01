@@ -2,9 +2,14 @@
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Mapping;
 using System.Data;
+using System.Linq;
+using static DataReaderMapper.Tests.TestDto;
+using System.Collections.Generic;
+using static DataReaderMapper.Tests.ExceptionTestDto;
+using static DataReaderMapper.Tests.CollectionTestDto;
 
 namespace DataReaderMapper.Tests
-{  
+{
 
     [TestClass]
     public class DataReaderMapperTests
@@ -15,48 +20,50 @@ namespace DataReaderMapper.Tests
         public void Setup()
         {
             _sut.Configure<TestDto>();
+            _sut.Configure<ExceptionTestDto>();
+            _sut.Configure<CollectionTestDto>();            
         }
 
         [TestMethod]
-        public void Should_Correctly_Map_String_Column_From_Reader()
+        public void Should_Correctly_Map_String_Column()
         {
-            using (var reader = DataReaderTestBuilder.BuildReader())
+            using (var reader = TestDtoBuilder.BuildReader())
             {
                 reader.Read();
                 var actual = _sut.Map<TestDto>(reader);
 
-                Assert.AreEqual(DataReaderTestBuilder.ExpectedStringColumnValue, actual.StringValue);
+                Assert.AreEqual(TestDtoBuilder.ExpectedStringColumnValue, actual.StringValue);
             }
         }
 
         [TestMethod]
-        public void Should_Correctly_Map_Integer_Column_From_Reader()
+        public void Should_Correctly_Map_Integer_Column()
         {
-            using (var reader = DataReaderTestBuilder.BuildReader())
+            using (var reader = TestDtoBuilder.BuildReader())
             {
                 reader.Read();
                 var actual = _sut.Map<TestDto>(reader);
 
-                Assert.AreEqual(DataReaderTestBuilder.ExpectedIntegerColumnValue, actual.IntegerValue);
+                Assert.AreEqual(TestDtoBuilder.ExpectedIntegerColumnValue, actual.IntegerValue);
             }
         }
 
         [TestMethod]
-        public void Should_Correctly_Map_DateTime_Column_From_Reader()
+        public void Should_Correctly_Map_DateTime_Column()
         {
-            using (var reader = DataReaderTestBuilder.BuildReader())
+            using (var reader = TestDtoBuilder.BuildReader())
             {
                 reader.Read();
                 var actual = _sut.Map<TestDto>(reader);
 
-                Assert.AreEqual(DataReaderTestBuilder.ExpectedDateTimeColumnValue, actual.DateValue);
+                Assert.AreEqual(TestDtoBuilder.ExpectedDateTimeColumnValue, actual.DateValue);
             }
         }
 
         [TestMethod]
-        public void Should_Ignore_Property_Without_MappableAttribute()
+        public void Should_Correctly_Ignore_Property_Without_MappableAttribute()
         {
-            using (var reader = DataReaderTestBuilder.BuildReader())
+            using (var reader = TestDtoBuilder.BuildReader())
             {
                 reader.Read();
                 var actual = _sut.Map<TestDto>(reader);
@@ -66,87 +73,256 @@ namespace DataReaderMapper.Tests
         }
 
         [TestMethod]
-        public void Should_Map_String_Column_To_Nested_Class_Property()
+        public void Should_Correctly_Map_String_Column_To_Nested_Class_Property()
         {
-            using (var reader = DataReaderTestBuilder.BuildReader())
+            using (var reader = TestDtoBuilder.BuildReader())
             {
                 reader.Read();
                 var actual = _sut.Map<TestDto>(reader);
 
-                Assert.AreEqual(DataReaderTestBuilder.ExpectedStringColumnValue, actual.NestedClass.StringValue);
+                Assert.AreEqual(TestDtoBuilder.ExpectedStringColumnValue, actual.NestedClass.StringValue);
             }
         }
 
         [TestMethod]
-        public void Should_Map_String_Column_To_Double_Nested_Class_Property()
+        public void Should_Correctly_Map_String_Column_To_Double_Nested_Class_Property()
         {
-            using (var reader = DataReaderTestBuilder.BuildReader())
+            using (var reader = TestDtoBuilder.BuildReader())
             {
                 reader.Read();
                 var actual = _sut.Map<TestDto>(reader);
 
-                Assert.AreEqual(DataReaderTestBuilder.ExpectedStringColumnValue, actual.NestedClass.NestedNestedClass.StringValue);
+                Assert.AreEqual(TestDtoBuilder.ExpectedStringColumnValue, actual.NestedClass.NestedNestedClass.StringValue);
+            }
+        }
 
+        [TestMethod]
+        public void Should_Correctly_Map_StringAsDateTime_Column()
+        {
+            using (var reader = TestDtoBuilder.BuildReader())
+            {
+                reader.Read();                
+
+                var actual = _sut.Map<TestDto>(reader);
+
+                Assert.AreEqual(TestDtoBuilder.DateTimeAsStringColumnValue, actual.DateTimeAsStringColumn);
+            }
+        }
+
+        [TestMethod]
+        public void Should_Correctly_Map_IntegerAsString_Column()
+        {
+            using (var reader = TestDtoBuilder.BuildReader())
+            {
+                reader.Read();
+                var actual = _sut.Map<TestDto>(reader);
+
+                Assert.AreEqual(TestDtoBuilder.IntegerAsStringValue, actual.IntegerAsString);
+            }
+        }
+
+        [TestMethod]
+        public void Should_Correctly_Map_Multiple_Rows()
+        {
+            int expectedNumberOfMappedEntities = 5;
+            using (var reader = TestDtoBuilder.BuildReader(5))
+            {                
+                var actual = _sut.MapAll<TestDto>(reader);
+
+                Assert.AreEqual(expectedNumberOfMappedEntities, actual.Count());
+                Assert.IsTrue(actual.All(x => x.StringValue == TestDtoBuilder.ExpectedStringColumnValue));
+            }
+        }
+
+        [TestMethod]
+        public void Should_Correctly_Map_Boolean_Column()
+        {
+            using (var reader = TestDtoBuilder.BuildReader())
+            {
+                reader.Read();
+                var actual = _sut.Map<TestDto>(reader);
+
+                Assert.AreEqual(TestDtoBuilder.ExpectedBooleanColumnValue, actual.BooleanValue);
+            }
+        }
+
+        [TestMethod]
+        public void Should_Correctly_Map_Decimal_Column()
+        {
+            using (var reader = TestDtoBuilder.BuildReader())
+            {
+                reader.Read();
+                var actual = _sut.Map<TestDto>(reader);
+
+                Assert.AreEqual(TestDtoBuilder.ExpectedDecimalColumn, actual.DecimalColumn);
+            }
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(InvalidCastException))]
+        public void Should_Throw_When_Trying_To_Convert_Invalid_Types_Without_Specified_Custom_Converter()
+        {
+            using (var reader = ExceptionTestDtoBuilder.BuildReader())
+            {
+                reader.Read();
+                var actual = _sut.Map<ExceptionTestDto>(reader);
+            }
+        }
+
+        [TestMethod]
+        public void Should_Correctly_Map_List_Of_Strings()
+        {
+            using (var reader = CollectionTestDtoBuilder.BuildReader())
+            {
+                reader.Read();
+                var actual = _sut.Map<CollectionTestDto>(reader);
+                Assert.AreEqual(actual.ListOfStrings.Count, CollectionTestDtoBuilder.SplitStrings.Count);
             }
         }
     }
 
-    internal class TestDto
-    {      
+    public class ExceptionTestDto
+    {
+        [Mappable("InvalidCastExceptionColumn")]
+        public int TryToParseIntFromString { get; set; }
+
+        internal static class ExceptionTestDtoBuilder
+        {
+            internal const string InvalidCastExceptionColumnValue = "123";
+
+            internal static DataTableReader BuildReader(int numberOfRows = 1)
+            {
+                var dataTable = new DataTable();
+                dataTable.Columns.Add(new DataColumn("InvalidCastExceptionColumn", typeof(string)));
+
+                for (int i = 0; i < numberOfRows; i++)
+                {
+                    var dataRow = dataTable.NewRow();
+                    dataRow["InvalidCastExceptionColumn"] = InvalidCastExceptionColumnValue;
+
+                    dataTable.Rows.Add(dataRow);
+                }
+
+                return dataTable.CreateDataReader();
+            }
+        }
+    }
+
+    public class CollectionTestDto
+    {
+        [Mappable("CollectionColumn", UseCustomConvertor = true)]
+        public List<string> ListOfStrings { get; set; }
+
+        internal static class CollectionTestDtoBuilder
+        {
+            internal const string StringsSplitByDelimiter = "some,strings,split,by,a,specified,delimiter";
+            internal static List<string> SplitStrings = StringsSplitByDelimiter.Split(',').ToList();
+
+
+            internal static DataTableReader BuildReader(int numberOfRows = 1)
+            {
+                var dataTable = new DataTable();
+                dataTable.Columns.Add(new DataColumn("CollectionColumn", typeof(string)));
+
+                for (int i = 0; i < numberOfRows; i++)
+                {
+                    var dataRow = dataTable.NewRow();
+                    dataRow["CollectionColumn"] = StringsSplitByDelimiter;
+
+                    dataTable.Rows.Add(dataRow);
+                }
+
+                return dataTable.CreateDataReader();
+            }
+        }
+    }
+
+    public class TestDto
+    {
+        [Mappable("IntegerAsString", UseCustomConvertor = true)]
+        public int IntegerAsString { get; set; }
+
         [Mappable("StringColumn")]
-        internal string StringValue { get; set; }
+        public string StringValue { get; set; }
 
         [Mappable("IntegerColumn")]
-        internal int IntegerValue { get; set; }
+        public int IntegerValue { get; set; }
+
+        [Mappable("BooleanColumn", true)]
+        public bool BooleanValue { get; set; }
+
+        [Mappable("DecimalColumn")]
+        public decimal DecimalColumn { get; set; }
 
         [Mappable("DateTimeColumn")]
-        internal DateTime DateValue { get; set; }
+        public DateTime DateValue { get; set; }
+
+        [Mappable("DateTimeAsStringColumn", UseCustomConvertor = true)]
+        public DateTime DateTimeAsStringColumn { get; set; }
 
         [MappableSource]
-        internal NestedTestDto NestedClass { get; set; }
+        public NestedTestDto NestedClass { get; set; }
 
-        internal string PropertyWithoutMappableAttribute { get; set; }
+        public string PropertyWithoutMappableAttribute { get; set; }
 
-        internal class NestedTestDto
+        public class NestedTestDto
         {
             [Mappable("NestedStringColumn")]
-            internal string StringValue { get; set; }
+            public string StringValue { get; set; }
 
             [MappableSource]
-            internal NestedNestedTestDto NestedNestedClass { get; set; }
+            public NestedNestedTestDto NestedNestedClass { get; set; }
 
-            internal class NestedNestedTestDto
+            public class NestedNestedTestDto
             {
                 [Mappable("NestedNestedStringColumn")]
                 public string StringValue { get; set; }
             }
         }
-    }
 
-    internal static class DataReaderTestBuilder
-    {
-        internal const string ExpectedStringColumnValue = "ExpectedValue";
-        internal const int ExpectedIntegerColumnValue = int.MaxValue;
-        internal static DateTime ExpectedDateTimeColumnValue = DateTime.MaxValue;
-
-        internal static DataTableReader BuildReader()
+        internal static class TestDtoBuilder
         {
-            var dataTable = new DataTable();
-            dataTable.Columns.Add(new DataColumn("StringColumn", typeof(string)));
-            dataTable.Columns.Add(new DataColumn("IntegerColumn", typeof(int)));
-            dataTable.Columns.Add(new DataColumn("DateTimeColumn", typeof(DateTime)));
-            dataTable.Columns.Add(new DataColumn("NestedStringColumn", typeof(string)));
-            dataTable.Columns.Add(new DataColumn("NestedNestedStringColumn", typeof(string)));
+            internal const string ExpectedStringColumnValue = "ExpectedValue";
+            internal const int ExpectedIntegerColumnValue = int.MaxValue;
+            internal static DateTime ExpectedDateTimeColumnValue = DateTime.MaxValue;
+            internal static DateTime DateTimeAsStringColumnValue = new DateTime(9999, 12, 31);
+            internal const int IntegerAsStringValue = int.MaxValue;
+            internal const bool ExpectedBooleanColumnValue = true;
+            internal const decimal ExpectedDecimalColumn = 11.123M;            
 
-            var dataRow = dataTable.NewRow();
-            dataRow["StringColumn"] = ExpectedStringColumnValue;
-            dataRow["IntegerColumn"] = ExpectedIntegerColumnValue;
-            dataRow["DateTimeColumn"] = ExpectedDateTimeColumnValue;
-            dataRow["NestedStringColumn"] = ExpectedStringColumnValue;
-            dataRow["NestedNestedStringColumn"] = ExpectedStringColumnValue;
-            dataTable.Rows.Add(dataRow);
+            internal static DataTableReader BuildReader(int numberOfRows = 1)
+            {
+                var dataTable = new DataTable();
+                dataTable.Columns.Add(new DataColumn("StringColumn", typeof(string)));
+                dataTable.Columns.Add(new DataColumn("IntegerColumn", typeof(int)));
+                dataTable.Columns.Add(new DataColumn("DateTimeColumn", typeof(DateTime)));
+                dataTable.Columns.Add(new DataColumn("NestedStringColumn", typeof(string)));
+                dataTable.Columns.Add(new DataColumn("NestedNestedStringColumn", typeof(string)));
+                dataTable.Columns.Add(new DataColumn("DateTimeAsStringColumn", typeof(string)));
+                dataTable.Columns.Add(new DataColumn("IntegerAsString", typeof(string)));
+                dataTable.Columns.Add(new DataColumn("BooleanColumn", typeof(string))); 
+                dataTable.Columns.Add(new DataColumn("DecimalColumn", typeof(decimal)));
 
-            return dataTable.CreateDataReader();
+                for (int i = 0; i < numberOfRows; i++)
+                {
+                    var dataRow = dataTable.NewRow();
+                    dataRow["StringColumn"] = ExpectedStringColumnValue;
+                    dataRow["IntegerColumn"] = ExpectedIntegerColumnValue;
+                    dataRow["DateTimeColumn"] = ExpectedDateTimeColumnValue;
+                    dataRow["NestedStringColumn"] = ExpectedStringColumnValue;
+                    dataRow["NestedNestedStringColumn"] = ExpectedStringColumnValue;
+                    dataRow["DateTimeAsStringColumn"] = DateTimeAsStringColumnValue.ToString(); //31.12.9999
+                    dataRow["IntegerAsString"] = IntegerAsStringValue;
+                    dataRow["BooleanColumn"] = "1"; //as a db flag
+                    dataRow["DecimalColumn"] = ExpectedDecimalColumn;
+
+                    dataTable.Rows.Add(dataRow);
+                }
+
+                return dataTable.CreateDataReader();
+            }
         }
     }
+
+    
 }
