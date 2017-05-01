@@ -11,7 +11,6 @@ namespace DataReaderMapper
     public class DataReaderMapper<TReader> where TReader : IDataReader
     {
         private Dictionary<Type, Tuple<Delegate, Expression>> _mapperCache = new Dictionary<Type, Tuple<Delegate, Expression>>();
-
         private Dictionary<Type, Expression> _convertors;
 
         public DataReaderMapper(Dictionary<Type, Expression> customTypeConvertors = null)
@@ -65,8 +64,8 @@ namespace DataReaderMapper
 
         private Tuple<Delegate, Expression> BuildMapperExpression<TTarget>() where TTarget : class, new()
         {            
-            var targetInstanceParameter = Expression.Variable(typeof(TTarget));
-            var dataReaderParameter = Expression.Parameter(typeof(TReader));          
+            var targetInstanceParameter = Expression.Variable(typeof(TTarget),"RootTargetInstance");
+            var dataReaderParameter = Expression.Parameter(typeof(TReader), "TReaderParameter");          
 
             // IDataReader instance has to implement "Item" property which is used for index access to IDataReader's table columns
             var indexerProperty = typeof(TReader).GetProperty("Item", new[] { typeof(string) });
@@ -80,7 +79,7 @@ namespace DataReaderMapper
             statements.Add(targetInstanceParameter); // return the mapped object
             var expressionBody = Expression.Block(targetInstanceParameter.Type, new[] { targetInstanceParameter }, statements.ToArray());
 
-            var lambda = Expression.Lambda<Func<TReader, TTarget>>(expressionBody, dataReaderParameter);
+            var lambda = Expression.Lambda<Func<TReader, TTarget>>(expressionBody, "TReader->TTarget lambda",  new[] { dataReaderParameter });
             return Tuple.Create<Delegate, Expression>(lambda.Compile(), lambda);
         }
 
@@ -129,11 +128,8 @@ namespace DataReaderMapper
 
         private Expression BuildConvertorExpression(Expression sourceToConvertExpression, Type conversionTargetType)
         {
-            if (_convertors.TryGetValue(conversionTargetType, out Expression convertorExpression))
-            {
-                MethodCallExpression sourceToStringExpression = ObjectToStringExpression(sourceToConvertExpression);
-                return Expression.Invoke(convertorExpression, sourceToStringExpression);
-            }
+            if (_convertors.TryGetValue(conversionTargetType, out Expression convertorExpression))            
+                return Expression.Invoke(convertorExpression, sourceToConvertExpression);            
 
             throw new InvalidOperationException($"The conversion to type {conversionTargetType.FullName} is not supported.");
         }

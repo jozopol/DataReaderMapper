@@ -10,6 +10,7 @@ namespace Benchmarks.Benchmarks
     {
         private DataReaderMapper<DataTableReader> _drm = new DataReaderMapper<DataTableReader>();
         private static DataTable _table = BuildDataTable(1);
+        
 
         [Setup]
         public void Setup()
@@ -38,6 +39,8 @@ namespace Benchmarks.Benchmarks
             }
         }
 
+        
+
         private static DataTable BuildDataTable(int rows)
         {
             var dt = new DataTable("TestTable");
@@ -53,18 +56,14 @@ namespace Benchmarks.Benchmarks
             dt.Columns.Add(new DataColumn("10", typeof(string)));
 
             for (int i = 0; i < rows; i++)
-            {
-                if (i % 9 == 0)
-                {
-                    AddRow(dt, true);
-                }
+            {                
                 AddRow(dt);
             }
 
             return dt;
         }
 
-        private static void AddRow(DataTable dt, bool causeException = false)
+        private static void AddRow(DataTable dt)
         {
             var nr = dt.NewRow();
             nr["1"] = "This is a text";
@@ -76,14 +75,7 @@ namespace Benchmarks.Benchmarks
             nr["7"] = 1;
             nr["8"] = 1;
             nr["9"] = 1;
-            if (causeException)
-            {
-                nr["10"] = null;
-            }
-            else
-            {
-                nr["10"] = 1;
-            } 
+            nr["10"] = 1;
 
             dt.Rows.Add(nr);
         }

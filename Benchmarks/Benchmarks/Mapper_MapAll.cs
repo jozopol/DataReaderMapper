@@ -9,8 +9,9 @@ namespace Benchmarks.Benchmarks
     public class Mapper_IEnumerableMapping
     {
         private DataReaderMapper<DataTableReader> _drm = new DataReaderMapper<DataTableReader>();
+        private static DataTable _tableWithExceptions;
 
-        [Params(10, 100, 500)]
+        [Params(10, 100, 500, 5000)]
         public int NumberOfRecords;
         public DataTable _table;
 
@@ -19,6 +20,7 @@ namespace Benchmarks.Benchmarks
         {
             _drm.Configure<Dto10Prop>();
             _table = BuildDataTable(NumberOfRecords);
+            _tableWithExceptions = BuildDataTable(NumberOfRecords, true);
         }
 
         [Benchmark(Baseline = true)]
@@ -44,7 +46,16 @@ namespace Benchmarks.Benchmarks
             }
         }
 
-        private static DataTable BuildDataTable(int rows)
+        [Benchmark]
+        public void MapperMapAllWith10PercentExceptions()
+        {
+            using (var reader = _tableWithExceptions.CreateDataReader())
+            {
+                _drm.MapAll<Dto10Prop>(reader);
+            }
+        }
+
+        private static DataTable BuildDataTable(int rows, bool generateExceptions = false)
         {
             var dt = new DataTable("TestTable");
             dt.Columns.Add(new DataColumn("1", typeof(string)));
@@ -60,13 +71,17 @@ namespace Benchmarks.Benchmarks
 
             for (int i = 0; i < rows; i++)
             {
+                if (i % 9 == 0 && generateExceptions)
+                {
+                    AddRow(dt, true);
+                }
                 AddRow(dt);
             }
 
             return dt;
         }
 
-        private static void AddRow(DataTable dt)
+        private static void AddRow(DataTable dt, bool causeException = false)
         {
             var nr = dt.NewRow();
             nr["1"] = "This is a text";
@@ -78,7 +93,14 @@ namespace Benchmarks.Benchmarks
             nr["7"] = 1;
             nr["8"] = 1;
             nr["9"] = 1;
-            nr["10"] = 1;
+            if (causeException)
+            {
+                nr["10"] = null;
+            }
+            else
+            {
+                nr["10"] = 1;
+            }
 
             dt.Rows.Add(nr);
         }
