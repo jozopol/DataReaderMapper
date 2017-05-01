@@ -11,7 +11,8 @@ collection properties<br><br>
 All benchmarks are created via https://github.com/dotnet/BenchmarkDotNet and are included in the source files.<br>
 
 <h2>Mapping</h2>
-
+<p> - average time to map one simple class with 10 properties (primitive types)</p>
+<br>
 <body>
 <pre><code>
 BenchmarkDotNet=v0.10.5, OS=Windows 10.0.10240
@@ -35,8 +36,7 @@ Runtime=Clr
 <h2>Configuration</h2>
 
 <p>- performance test of the Configure method for classes with 1/5/10 properties (primitive types).</p>
-
-
+<br>
 <body>
 <pre><code>
 BenchmarkDotNet=v0.10.5, OS=Windows 10.0.10240
