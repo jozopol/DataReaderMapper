@@ -136,6 +136,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DataReaderMapper.cs" />
+    <Compile Include="ExpressionExtensions.cs" />
     <Compile Include="MappableAttribute.cs" />
     <Compile Include="MappableSource.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

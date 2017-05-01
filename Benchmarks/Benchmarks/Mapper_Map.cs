@@ -54,13 +54,17 @@ namespace Benchmarks.Benchmarks
 
             for (int i = 0; i < rows; i++)
             {
+                if (i % 9 == 0)
+                {
+                    AddRow(dt, true);
+                }
                 AddRow(dt);
             }
 
             return dt;
         }
 
-        private static void AddRow(DataTable dt)
+        private static void AddRow(DataTable dt, bool causeException = false)
         {
             var nr = dt.NewRow();
             nr["1"] = "This is a text";
@@ -72,7 +76,14 @@ namespace Benchmarks.Benchmarks
             nr["7"] = 1;
             nr["8"] = 1;
             nr["9"] = 1;
-            nr["10"] = 1;
+            if (causeException)
+            {
+                nr["10"] = null;
+            }
+            else
+            {
+                nr["10"] = 1;
+            } 
 
             dt.Rows.Add(nr);
         }
@@ -93,5 +104,5 @@ namespace Benchmarks.Benchmarks
                 MyProperty10 = reader["10"].ToString()
             };
         }
-    }
+    }    
 }

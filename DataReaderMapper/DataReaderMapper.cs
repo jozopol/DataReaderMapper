@@ -31,7 +31,17 @@ namespace DataReaderMapper
         {
             if (_mapperCache.ContainsKey(typeof(TTarget)))
             {
-                return GetMapperFunction<TTarget>()(source);
+                try
+                {
+                    return GetMapperFunction<TTarget>()(source);
+                }
+                catch (InvalidCastException ex)
+                {
+                    string invokedExpressionDebugView = _mapperCache[typeof(TTarget)].Item2.GetDebugView();
+                    throw new InvalidCastException($"An invalid cast occurred for one of the properties. Check this expression for details: {Environment.NewLine} {invokedExpressionDebugView}", ex);
+                    // log 
+                }
+                
             }
             return new TTarget();
         }        
