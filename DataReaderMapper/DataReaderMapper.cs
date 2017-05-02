@@ -11,13 +11,22 @@ namespace DataReaderMapper
     public class DataReaderMapper<TReader> where TReader : IDataReader
     {
         private Dictionary<Type, Tuple<Delegate, Expression>> _mapperCache = new Dictionary<Type, Tuple<Delegate, Expression>>();
-        private Dictionary<Type, Expression> _convertors;
 
-        public DataReaderMapper(Dictionary<Type, Expression> customTypeConvertors = null)
+        private Dictionary<Type, Expression> _typeConvertors;
+        private Dictionary<string, Expression> _idConvertors;
+        private bool _hasIdConvertorsEnabled = false;
+
+        public DataReaderMapper(Dictionary<Type, Expression> customTypeConvertors = null, Dictionary<string, Expression> idConvertors = null)
         {
-            _convertors = customTypeConvertors ?? TypeConvertors.DefaultConvertors;
-        }
+            _typeConvertors = customTypeConvertors ?? TypeConvertors.DefaultConvertors;
 
+            if (idConvertors != null)
+            {
+                _idConvertors = idConvertors;
+                _hasIdConvertorsEnabled = true;
+            }            
+        }
+        
         public void Configure<TTarget>() where TTarget : class, new()
         {
             if (!_mapperCache.ContainsKey(typeof(TTarget)))
@@ -130,7 +139,7 @@ namespace DataReaderMapper
                 var recordColumnAccessor = Expression.MakeIndex(dataReaderParameter, indexerProperty, new[] { Expression.Constant(mappableAttribute.ReaderColumnName) });
 
                 // (object)IDataReader["columnName"] => Func<object, property.PropertyType> (dataReader) => convertorFunc(dataReader)
-                var convertRecordToTargetPropertyType = BuildConvertorExpression(property.PropertyType, mappableAttribute.UseCustomConvertor, recordColumnAccessor);
+                var convertRecordToTargetPropertyType = BuildConvertorExpression(property.PropertyType, recordColumnAccessor, mappableAttribute);
 
                 memberAssignments.Add(Expression.Bind(property.SetMethod, convertRecordToTargetPropertyType));
             }
@@ -140,17 +149,21 @@ namespace DataReaderMapper
         }
         
 
-        private Expression BuildConvertorExpression(Type typeToConvertTo, bool useCustomConvertor, IndexExpression recordColumnAccessor)
+        private Expression BuildConvertorExpression(Type typeToConvertTo, IndexExpression recordColumnAccessor, MappableAttribute mappableAttribute)
         {
-            return useCustomConvertor
-                ? BuildConvertorExpression(recordColumnAccessor, typeToConvertTo)
+            return mappableAttribute.UseCustomConvertor
+                ? BuildConvertorExpression(recordColumnAccessor, typeToConvertTo, mappableAttribute.CustomConvertorId)
                 : Expression.Convert(recordColumnAccessor, typeToConvertTo);
         }
 
-        private Expression BuildConvertorExpression(Expression sourceToConvertExpression, Type conversionTargetType)
+        private Expression BuildConvertorExpression(Expression sourceToConvertExpression, Type conversionTargetType, string convertorId)
         {
+            // try to get a convertor specified by his ID
+            if (_hasIdConvertorsEnabled && _idConvertors.TryGetValue(convertorId, out Expression convertorExpression))
+                return Expression.Invoke(convertorExpression, sourceToConvertExpression);
+
             // try to get custom convertor function
-            if (_convertors.TryGetValue(conversionTargetType, out Expression convertorExpression))            
+            if (_typeConvertors.TryGetValue(conversionTargetType, out convertorExpression))            
                 return Expression.Invoke(convertorExpression, sourceToConvertExpression);            
 
             throw new InvalidOperationException($"The conversion to type {conversionTargetType.FullName} is not supported.");

@@ -8,6 +8,8 @@ using System.Collections.Generic;
 using static DataReaderMapper.Tests.ExceptionTestDto;
 using static DataReaderMapper.Tests.CollectionTestDto;
 using static DataReaderMapper.Tests.FuncCacheTestDto;
+using static DataReaderMapper.Tests.ConvertorIdTestDto;
+using System.Linq.Expressions;
 
 namespace DataReaderMapper.Tests
 {
@@ -21,8 +23,6 @@ namespace DataReaderMapper.Tests
         public void Setup()
         {
             _sut.Configure<TestDto>();
-            _sut.Configure<ExceptionTestDto>();
-            _sut.Configure<CollectionTestDto>();            
         }
 
         [TestMethod]
@@ -163,6 +163,8 @@ namespace DataReaderMapper.Tests
         [ExpectedException(typeof(InvalidCastException))]
         public void Should_Throw_When_Trying_To_Convert_Invalid_Types_Without_Specified_Custom_Converter()
         {
+            _sut.Configure<ExceptionTestDto>();
+
             using (var reader = ExceptionTestDtoBuilder.BuildReader())
             {
                 reader.Read();
@@ -173,6 +175,8 @@ namespace DataReaderMapper.Tests
         [TestMethod]
         public void Should_Correctly_Map_List_Of_Strings()
         {
+            _sut.Configure<CollectionTestDto>();
+
             using (var reader = CollectionTestDtoBuilder.BuildReader())
             {
                 reader.Read();
@@ -182,7 +186,7 @@ namespace DataReaderMapper.Tests
         }
 
         [TestMethod]
-        public void Should_Cache_Mapping_Function_For_Class_Property_After_Configure_On_Parent()
+        public void Should_Correctly_Cache_Mapping_Function_For_Class_Property_After_Configure_On_Parent()
         {
             var sut = new DataReaderMapper<DataTableReader>();
             sut.Configure<FuncCacheTestDto>();
@@ -198,6 +202,75 @@ namespace DataReaderMapper.Tests
             }
         }
 
+        [TestMethod]
+        public void Should_Correctly_Convert_Property_With_Custom_Convertor_Specified_By_ID()
+        {
+            var idConvertors = new Dictionary<string, Expression>() {{ "convertorId=1", (Expression<Func<object, string>>)((object o) => $"Hello World {int.Parse(o.ToString())}" )}};
+
+            var sut = new DataReaderMapper<DataTableReader>(null, idConvertors);
+            sut.Configure<ConvertorIdTestDto>();
+            string expected = $"Hello World {ConvertorIdTestDtoBuilder.NestedClassPropertyExpectedValue}";
+
+            using (var reader = ConvertorIdTestDtoBuilder.BuildReader())
+            {
+                reader.Read();
+
+                var actual = sut.Map<ConvertorIdTestDto>(reader);
+                string actualMessage = actual.IntegerToBeConvertedToMessage;
+
+                Assert.AreEqual(expected, actual.IntegerToBeConvertedToMessage);
+            }
+        }
+
+        [TestMethod]
+        public void Should_Give_Priority_To_ID_Convertor_Over_Custom_Type_Convertor()
+        {
+            var idConvertors = new Dictionary<string, Expression> { { "convertorId=1", (Expression<Func<object, string>>)((object o) => $"Hello World {int.Parse(o.ToString())}") } };
+            var typeConvertors = new Dictionary<Type, Expression> { { typeof(string), (Expression<Func<object, string>>)((object o) => o.ToString()) } };
+
+            var sut = new DataReaderMapper<DataTableReader>(typeConvertors, idConvertors);
+            sut.Configure<ConvertorIdTestDto>();
+            string expected = $"Hello World {ConvertorIdTestDtoBuilder.NestedClassPropertyExpectedValue}";
+
+            using (var reader = ConvertorIdTestDtoBuilder.BuildReader())
+            {
+                reader.Read();
+
+                var actual = sut.Map<ConvertorIdTestDto>(reader);
+                string actualMessage = actual.IntegerToBeConvertedToMessage;
+
+                Assert.AreEqual(expected, actual.IntegerToBeConvertedToMessage);
+            }
+        }
+
+    }
+
+    #region DTOsAndReaderBuilders
+    public class ConvertorIdTestDto
+    {
+        [Mappable("IntegerColumn", "convertorId=1")]
+        public string IntegerToBeConvertedToMessage { get; set; }
+
+        internal static class ConvertorIdTestDtoBuilder
+        {
+            internal const int NestedClassPropertyExpectedValue = 10;
+
+            internal static DataTableReader BuildReader(int numberOfRows = 1)
+            {
+                var dataTable = new DataTable();
+                dataTable.Columns.Add(new DataColumn("IntegerColumn", typeof(int)));
+
+                for (int i = 0; i < numberOfRows; i++)
+                {
+                    var dataRow = dataTable.NewRow();
+                    dataRow["IntegerColumn"] = NestedClassPropertyExpectedValue;
+
+                    dataTable.Rows.Add(dataRow);
+                }
+
+                return dataTable.CreateDataReader();
+            }
+        }
     }
 
     public class FuncCacheTestDto
@@ -273,7 +346,7 @@ namespace DataReaderMapper.Tests
 
     public class CollectionTestDto
     {
-        [Mappable("CollectionColumn", UseCustomConvertor = true)]
+        [Mappable("CollectionColumn", true)]
         public List<string> ListOfStrings { get; set; }
 
         internal static class CollectionTestDtoBuilder
@@ -302,7 +375,7 @@ namespace DataReaderMapper.Tests
 
     public class TestDto
     {
-        [Mappable("IntegerAsString", UseCustomConvertor = true)]
+        [Mappable("IntegerAsString", true)]
         public int IntegerAsString { get; set; }
 
         [Mappable("StringColumn")]
@@ -320,7 +393,7 @@ namespace DataReaderMapper.Tests
         [Mappable("DateTimeColumn")]
         public DateTime DateValue { get; set; }
 
-        [Mappable("DateTimeAsStringColumn", UseCustomConvertor = true)]
+        [Mappable("DateTimeAsStringColumn", true)]
         public DateTime DateTimeAsStringColumn { get; set; }
 
         [MappableSource]
@@ -386,6 +459,6 @@ namespace DataReaderMapper.Tests
             }
         }
     }
+    #endregion
 
-    
 }

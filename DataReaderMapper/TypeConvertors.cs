@@ -19,6 +19,6 @@ namespace DataReaderMapper
                     { typeof(List<string>), (Expression<Func<object, List<string>>>)((object o) => o.ToString().Split(',').ToList())},
                 };
             }
-        }
+        }        
     }
 }
