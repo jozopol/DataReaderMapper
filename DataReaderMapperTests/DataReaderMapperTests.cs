@@ -7,6 +7,7 @@ using static DataReaderMapper.Tests.TestDto;
 using System.Collections.Generic;
 using static DataReaderMapper.Tests.ExceptionTestDto;
 using static DataReaderMapper.Tests.CollectionTestDto;
+using static DataReaderMapper.Tests.FuncCacheTestDto;
 
 namespace DataReaderMapper.Tests
 {
@@ -178,6 +179,68 @@ namespace DataReaderMapper.Tests
                 var actual = _sut.Map<CollectionTestDto>(reader);
                 Assert.AreEqual(actual.ListOfStrings.Count, CollectionTestDtoBuilder.SplitStrings.Count);
             }
+        }
+
+        [TestMethod]
+        public void Should_Cache_Mapping_Function_For_Class_Property_After_Configure_On_Parent()
+        {
+            var sut = new DataReaderMapper<DataTableReader>();
+            sut.Configure<FuncCacheTestDto>();
+            using (var reader = FuncCacheTestDtoBuilder.BuildReader())
+            {
+                reader.Read();
+
+                var actualNestedOneLevel = sut.Map<NestedFuncDto>(reader);
+                var actual2LevelsDeep = sut.Map<AnotherNestedDto>(reader);
+
+                Assert.AreEqual(FuncCacheTestDtoBuilder.NestedClassPropertyExpectedValue, actualNestedOneLevel.Number);
+                Assert.AreEqual(FuncCacheTestDtoBuilder.NestedClassPropertyExpectedValue, actual2LevelsDeep.AnotherNumber);
+            }
+        }
+
+    }
+
+    public class FuncCacheTestDto
+    {
+        [MappableSource]
+        public NestedFuncDto NestedClassProperty { get; set; }
+
+        internal static class FuncCacheTestDtoBuilder
+        {
+            internal const int NestedClassPropertyExpectedValue = 1;
+
+            internal static DataTableReader BuildReader(int numberOfRows = 1)
+            {
+                var dataTable = new DataTable();
+                dataTable.Columns.Add(new DataColumn("NestedFuncInteger", typeof(int)));
+                dataTable.Columns.Add(new DataColumn("AnotherNestedDtoInteger", typeof(int)));
+
+                for (int i = 0; i < numberOfRows; i++)
+                {
+                    var dataRow = dataTable.NewRow();
+                    dataRow["NestedFuncInteger"] = NestedClassPropertyExpectedValue;
+                    dataRow["AnotherNestedDtoInteger"] = NestedClassPropertyExpectedValue;
+
+                    dataTable.Rows.Add(dataRow);
+                }
+
+                return dataTable.CreateDataReader();
+            }
+        }
+
+        public class NestedFuncDto
+        {
+            [Mappable("NestedFuncInteger")]
+            public int Number { get; set; }
+
+            [MappableSource]
+            public AnotherNestedDto AnotherNestedClass { get; set; }
+        }
+
+        public class AnotherNestedDto
+        {
+            [Mappable("AnotherNestedDtoInteger")]
+            public int AnotherNumber { get; set; }
         }
     }
 
