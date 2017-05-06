@@ -1,10 +1,10 @@
-﻿using Mapping;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
+using DataReaderMapper.ExpressionExtensions;
 
 namespace DataReaderMapper
 {
@@ -13,18 +13,10 @@ namespace DataReaderMapper
         private readonly Dictionary<Type, Tuple<Delegate, Expression>> _mapperCache = new Dictionary<Type, Tuple<Delegate, Expression>>();
 
         private readonly Dictionary<Type, Expression> _typeConvertors;
-        private readonly Dictionary<string, Expression> _idConvertors;
-        private readonly bool _hasIdConvertorsEnabled;
 
-        public DataReaderMapper(Dictionary<Type, Expression> customTypeConvertors = null, Dictionary<string, Expression> idConvertors = null)
+        public DataReaderMapper(Dictionary<Type, Expression> customTypeConvertors = null)
         {
             _typeConvertors = customTypeConvertors ?? TypeConvertors.DefaultConvertors;
-
-            if (idConvertors != null)
-            {
-                _idConvertors = idConvertors;
-                _hasIdConvertorsEnabled = true;
-            }            
         }
         
         public void Configure<TTarget>() where TTarget : class, new()
@@ -71,101 +63,74 @@ namespace DataReaderMapper
 
         private Tuple<Delegate, Expression> BuildMapperExpression<TTarget>() where TTarget : class, new()
         {            
-            var targetInstanceParameter = Expression.Variable(typeof(TTarget),"TargetInstance");
+            var targetInstanceParameter = Expression.Variable(typeof(TTarget),"TTargetInstance");
             var dataReaderParameter = Expression.Parameter(typeof(TReader), "TReaderParameter");          
 
-            // IDataReader instance has to implement "Item" property which is used for index access to IDataReader's table columns
+            // IDataReader instance has to implement "Item" targetProperty which is used for index access to IDataReader's table columns through IDataRecord interface
             var indexerProperty = typeof(TReader).GetProperty("Item", new[] { typeof(string) });
 
-            var statements = new List<Expression>();
-
-            statements.Add(Expression.Assign(targetInstanceParameter, Expression.New(typeof(TTarget)))); // new TTarget()
-
-            // build the expressions for primitive (string/int/..) properties
-            var primitivePropertySetters = BuildNullablePrimitivePropertiesExpressions(typeof(TTarget), targetInstanceParameter, dataReaderParameter, indexerProperty);
-            statements.AddRange(primitivePropertySetters);
-
-            // build the expressions for complex (classes) properties
-            statements.AddRange(MapComplexProperties(typeof(TTarget), targetInstanceParameter, dataReaderParameter, indexerProperty));
-
-            statements.Add(targetInstanceParameter); // return TTarget()
-
-            var expressionBody = Expression.Block(targetInstanceParameter.Type, new[] { targetInstanceParameter }, statements.ToArray());
+            var expressionBody = BuildExpressionBlock(targetInstanceParameter.Type, targetInstanceParameter, dataReaderParameter, indexerProperty);
 
             var lambda = Expression.Lambda<Func<TReader, TTarget>>(expressionBody, "TReader->TTarget lambda",  new[] { dataReaderParameter });
             return Tuple.Create<Delegate, Expression>(lambda.Compile(), lambda);
+        }        
+
+        private Expression BuildPropertyInitializerBlock(PropertyInfo targetProperty, Expression dataReaderParameter, PropertyInfo indexerProperty)
+        {
+            if (_mapperCache.ContainsKey(targetProperty.PropertyType))
+                return _mapperCache[targetProperty.PropertyType].Item2;
+            
+            var propertyVariable = Expression.Variable(targetProperty.PropertyType, "variable");
+            var expressionBlock = BuildExpressionBlock(targetProperty.PropertyType, propertyVariable, dataReaderParameter, indexerProperty);
+            SaveToCache(targetProperty.PropertyType, expressionBlock, dataReaderParameter);
+            return expressionBlock;
         }
 
-        private IEnumerable<Expression> MapComplexProperties(Type targetType, Expression targetInstance, Expression dataReaderParameter, PropertyInfo indexerProperty)
+        private BlockExpression BuildExpressionBlock(Type targetType, ParameterExpression targetInstanceParameter, Expression dataReaderParameter, PropertyInfo indexerProperty)
         {
-            var statements = new List<Expression>();
-            foreach (var property in GetMappableSourceProperties(targetType))
-            {
-                // targetInstance.SomePropertyInstance
-                var targetsPropertyInstance = Expression.Property(targetInstance, property);
-                // targetInstance.SomePropertyInstance = new SomePropertyInstance()
-                //var newPropertyInstanceExpression = Expression.Assign(targetsPropertyInstance, Expression.New(property.PropertyType));
-
-                //statements.Add(newPropertyInstanceExpression);
-
-                //var assignPropertiesToTargetInstance = BuildNullablePrimitivePropertiesExpressions(property.PropertyType, targetsPropertyInstance, dataReaderParameter, indexerProperty);
-                //statements.AddRange(assignPropertiesToTargetInstance);
-                var newPropertyInstanceExpression = Expression.Assign(targetsPropertyInstance, TryCache(property, dataReaderParameter, indexerProperty));
-                statements.Add(newPropertyInstanceExpression);
-
-                var setComplexProperties = MapComplexProperties(property.PropertyType, targetsPropertyInstance, dataReaderParameter, indexerProperty);
-                statements.AddRange(setComplexProperties);
-            }
-
-            return statements;
+            var expressionBlockBuilder = new ExpressionBlockBuilder(targetInstanceParameter.Type, new[] {targetInstanceParameter});
+            return expressionBlockBuilder
+                .Add(Expression.Assign(targetInstanceParameter, Expression.New(targetType)))
+                .AddRange(BuildPrimitivePropertyExpressions(targetType, targetInstanceParameter, dataReaderParameter, indexerProperty))
+                .AddRange(BuildComplexPropertyExpressions(targetType, targetInstanceParameter, dataReaderParameter, indexerProperty))
+                .Add(targetInstanceParameter)
+                .Build();
         }
 
-        private Expression TryCache(PropertyInfo property, Expression dataReaderParameter, PropertyInfo indexerProperty)
+        private IEnumerable<Expression> BuildComplexPropertyExpressions(Type targetType, Expression targetInstance, Expression dataReaderParameter, PropertyInfo indexerProperty)
         {
-            var cachelist = new List<Expression>();
+            return from property in GetMappableSourceProperties(targetType)
+                let targetsPropertyInstance = Expression.Property(targetInstance, property) // targetInstance.SomeProperty
+                let propertyInitializerBlock = BuildPropertyInitializerBlock(property, dataReaderParameter, indexerProperty) // block = new SomeProperty() { Prop1 = ..., Prop2 = ... }
+                select Expression.Assign(targetsPropertyInstance, propertyInitializerBlock); // targetInstance.SomeProperty = block
+        }
 
-            var targetInstanceParameter = Expression.Variable(property.PropertyType, "TargetInstance.Property");
-            cachelist.Add(Expression.Assign(targetInstanceParameter, Expression.New(property.PropertyType)));
+        private void SaveToCache(Type targetType, Expression expression, Expression dataReaderParameter)
+        {
+            if (_mapperCache.ContainsKey(targetType))            
+                return;
 
-            var assignPropertiesToTargetInstance = BuildNullablePrimitivePropertiesExpressions(property.PropertyType, targetInstanceParameter, dataReaderParameter, indexerProperty);
-            cachelist.AddRange(assignPropertiesToTargetInstance);
-            cachelist.Add(targetInstanceParameter);
-            var variablePropAssign = Expression.Block(targetInstanceParameter.Type, new[] {targetInstanceParameter}, cachelist);
-            return variablePropAssign;
+                // we should cache each Func<IDataReader, T> where T != TTarget and where T is a nested complex targetProperty of TTarget or its other complex properties
+                // we can use it later (if we want to map only the nested classes for example)
+            var lambda = Expression.Lambda(expression, (ParameterExpression)dataReaderParameter);
+            _mapperCache.Add(targetType, Tuple.Create(lambda.Compile(), expression));
+        }
+
+        private IEnumerable<Expression> BuildPrimitivePropertyExpressions(Type targetType, Expression targetInstance, Expression dataReaderParameter, PropertyInfo indexerProperty)
+        {
+            return from property in GetMappableProperties(targetType)
+                let mappableAttribute = (MappableAttribute)Attribute.GetCustomAttribute(property, typeof(MappableAttribute))
+                let recordColumnAccessor = ReaderColumnAccessor(dataReaderParameter, indexerProperty, mappableAttribute)
+                let getOrdinalExpression = GetOrdinalExpression(dataReaderParameter, mappableAttribute)
+                let isDbNullMethodExpression = IsDbNullExpression(dataReaderParameter, getOrdinalExpression)
+                let targetsPropertyInstance = Expression.Property(targetInstance, property)
+                let assignConvertedValue = Expression.Assign(targetsPropertyInstance, ConvertExpression(property.PropertyType, recordColumnAccessor, mappableAttribute))
+                select Expression.IfThen(Expression.IsFalse(isDbNullMethodExpression), assignConvertedValue);
         }
 
         private static IEnumerable<PropertyInfo> GetMappableSourceProperties(Type targetType)
         {
             return targetType.GetRuntimeProperties().Where(x => x.IsDefined(typeof(MappableSourceAttribute), true));
-        }
-
-        private void CacheComplexPropertySetterExpression(Expression dataReaderParameter, Type propertyType, Expression setPrimitivePropertiesExpression)
-        {
-            if (_mapperCache.ContainsKey(propertyType))            
-                return;
-
-                // we should cache each Func<IDataReader, T> where T != TTarget and wher T is a nested complex property of TTarget or its other complex properties
-                // we can use it later (if we want to map only the nested classes for example)
-            var lambda = Expression.Lambda(setPrimitivePropertiesExpression, (ParameterExpression)dataReaderParameter);
-            _mapperCache.Add(propertyType, Tuple.Create<Delegate, Expression>(lambda.Compile(), lambda));
-        }
-
-        private IEnumerable<Expression> BuildNullablePrimitivePropertiesExpressions(Type targetType, Expression targetInstance, Expression dataReaderParameter, PropertyInfo indexerProperty)
-        {
-            foreach (var property in GetMappableProperties(targetType))
-            {
-                var targetsPropertyInstance = Expression.Property(targetInstance, property);
-
-                var mappableAttribute = (MappableAttribute)Attribute.GetCustomAttribute(property, typeof(MappableAttribute));
-                var recordColumnAccessor = ReaderColumnAccessor(dataReaderParameter, indexerProperty, mappableAttribute);
-
-                var getOrdinalExpression = GetOrdinalExpression(dataReaderParameter, mappableAttribute);
-                var isDbNullMethodExpression = IsDbNullExpression(dataReaderParameter, getOrdinalExpression);
-
-                var assignConvertedValue = Expression.Assign(targetsPropertyInstance, ConvertExpression(property.PropertyType, recordColumnAccessor, mappableAttribute));
-
-                yield return Expression.IfThen(Expression.IsFalse(isDbNullMethodExpression), assignConvertedValue);
-            }
         }
 
         private static IEnumerable<PropertyInfo> GetMappableProperties(Type targetType)
@@ -198,27 +163,17 @@ namespace DataReaderMapper
         private Expression ConvertExpression(Type typeToConvertTo, Expression recordColumnAccessor, MappableAttribute mappableAttribute)
         {
             return mappableAttribute.UseCustomConvertor
-                ? ConvertExpression(recordColumnAccessor, typeToConvertTo, mappableAttribute.CustomConvertorId)
+                ? ConvertExpression(recordColumnAccessor, typeToConvertTo)
                 : Expression.Convert(recordColumnAccessor, typeToConvertTo);
         }
 
-        private Expression ConvertExpression(Expression sourceToConvertExpression, Type conversionTargetType, string convertorId)
+        private Expression ConvertExpression(Expression sourceToConvertExpression, Type conversionTargetType)
         {
-            // try to get a convertor specified by his ID
-            if (_hasIdConvertorsEnabled && _idConvertors.TryGetValue(convertorId, out Expression convertorExpression))
-                return Expression.Invoke(convertorExpression, sourceToConvertExpression);
-
             // try to get custom convertor function
-            if (_typeConvertors.TryGetValue(conversionTargetType, out convertorExpression))            
+            if (_typeConvertors.TryGetValue(conversionTargetType, out Expression convertorExpression))            
                 return Expression.Invoke(convertorExpression, sourceToConvertExpression);            
 
-            throw new InvalidOperationException($"The conversion to type {conversionTargetType.FullName} is not supported. Check if the convertor for the specified type should be used.");
-        }
-
-        private static MethodCallExpression ObjectToStringExpression(Expression sourceToConvertExpression)
-        {
-            var toStringMethod = typeof(object).GetMethod("ToString");
-            return Expression.Call(sourceToConvertExpression, toStringMethod);
+            throw new InvalidOperationException($"The conversion to type {conversionTargetType.FullName} is not supported. Provide a custom type convertor via mapper constructor to convert this type.");
         }
     }
 }

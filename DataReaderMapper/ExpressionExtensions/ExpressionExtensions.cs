@@ -1,7 +1,7 @@
 ﻿using System.Linq.Expressions;
 using System.Reflection;
 
-namespace DataReaderMapper
+namespace DataReaderMapper.ExpressionExtensions
 {
     public static class ExpressionExtensions
     {

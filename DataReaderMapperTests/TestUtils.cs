@@ -1,15 +1,14 @@
 ﻿using System.Data;
 using DataReaderMapper;
-using Mapping;
 
 namespace DataReaderMapperTests
 {
     public static class TestUtils
     {
-        public static DataTableReader BuildReader<TProperty, TColumn>(TColumn expectedValue, int numberOfRows)
+        public static DataTableReader BuildReader<TColumn>(TColumn expectedValue, int numberOfRows)
         {
             var dataTable = new DataTable();
-            dataTable.Columns.Add(new DataColumn("PropertyToTest", typeof(TProperty)));
+            dataTable.Columns.Add(new DataColumn("PropertyToTest", typeof(TColumn)));
 
             for (int i = 0; i < numberOfRows; i++)
             {
@@ -31,11 +30,11 @@ namespace DataReaderMapperTests
 
         public static DataTableReader BuildReader(TProperty expectedValue, int numberOfRows = 1)
         {
-            return TestUtils.BuildReader<TProperty, TProperty>(expectedValue, numberOfRows);
+            return TestUtils.BuildReader(expectedValue, numberOfRows);
         }
     }
 
-    public class MapperDTO<TProperty, TReaderColumnType>
+    public class ConversionDTO<TProperty, TReaderColumnType>
     {
         [Mappable("PropertyToTest", true)]
         public TProperty PropertyToTest { get; set; }
@@ -43,7 +42,7 @@ namespace DataReaderMapperTests
 
         public static DataTableReader BuildReader(TReaderColumnType expectedValue, int numberOfRows = 1)
         {
-            return TestUtils.BuildReader<TProperty, TReaderColumnType>(expectedValue, numberOfRows);
+            return TestUtils.BuildReader(expectedValue, numberOfRows);
         }
     }
 
@@ -55,7 +54,7 @@ namespace DataReaderMapperTests
 
         public static DataTableReader BuildReader(TProperty expectedValue, int numberOfRows = 1)
         {
-            return TestUtils.BuildReader<TProperty, TProperty>(expectedValue, numberOfRows); 
+            return TestUtils.BuildReader(expectedValue, numberOfRows); 
         }
     }
 
@@ -65,7 +64,7 @@ namespace DataReaderMapperTests
 
         public static DataTableReader BuildReader(string expectedValue, int numberOfRows = 1)
         {
-            return TestUtils.BuildReader<string, string>(expectedValue, numberOfRows);
+            return TestUtils.BuildReader(expectedValue, numberOfRows);
         }
     }
 

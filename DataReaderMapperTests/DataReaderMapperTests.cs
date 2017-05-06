@@ -136,14 +136,14 @@ namespace DataReaderMapperTests
         [TestMethod]
         public void Should_Correctly_Map_StringAsDateTime()
         {
-            var sut = BuildAndConfigureFor<MapperDTO<DateTime, string>>();
+            var sut = BuildAndConfigureFor<ConversionDTO<DateTime, string>>();
             DateTime expectedDateValue = new DateTime(9999, 12, 31);
             string expectedStringValue = expectedDateValue.ToShortDateString();
 
-            using (var reader = MapperDTO<DateTime, string>.BuildReader(expectedStringValue))
+            using (var reader = ConversionDTO<DateTime, string>.BuildReader(expectedStringValue))
             {
                 reader.Read();
-                var actual = sut.Map<MapperDTO<DateTime, string>>(reader);
+                var actual = sut.Map<ConversionDTO<DateTime, string>>(reader);
 
                 Assert.AreEqual(expectedDateValue, actual.PropertyToTest);
             }
@@ -152,14 +152,14 @@ namespace DataReaderMapperTests
         [TestMethod]
         public void Should_Correctly_Map_IntegerAsString()
         {
-            var sut = BuildAndConfigureFor<MapperDTO<int, string>> ();
+            var sut = BuildAndConfigureFor<ConversionDTO<int, string>> ();
             int expectedValue = 12345;
             string expectedStringValue = expectedValue.ToString();
 
-            using (var reader = MapperDTO<int, string>.BuildReader(expectedStringValue))
+            using (var reader = ConversionDTO<int, string>.BuildReader(expectedStringValue))
             {
                 reader.Read();
-                var actual = sut.Map<MapperDTO<int, string>>(reader);
+                var actual = sut.Map<ConversionDTO<int, string>>(reader);
 
                 Assert.AreEqual(expectedValue, actual.PropertyToTest);
             }
@@ -215,12 +215,12 @@ namespace DataReaderMapperTests
         [ExpectedException(typeof(InvalidOperationException))]
         public void Should_Throw_When_Trying_To_Convert_Invalid_Types_Without_Specified_Custom_Converter()
         {
-            var sut = BuildAndConfigureFor<MapperDTO<int, string>>(new Dictionary<Type, Expression>());
+            var sut = BuildAndConfigureFor<ConversionDTO<int, string>>(new Dictionary<Type, Expression>());
 
-            using (var reader = MapperDTO<int, string>.BuildReader("12345"))
+            using (var reader = ConversionDTO<int, string>.BuildReader("12345"))
             {
                 reader.Read();
-                var actual = sut.Map<MapperDTO<int, string>>(reader);
+                var actual = sut.Map<ConversionDTO<int, string>>(reader);
 
                 Assert.Fail("A conversion for this type should not be supported without explicit TypeConvertor Expression injection to the mapper.");
             }
@@ -241,36 +241,42 @@ namespace DataReaderMapperTests
             }
         }
 
-        //[TestMethod]
-        //public void Should_Correctly_Map_List_Of_Strings()
-        //{
-        //    _sut.Configure<CollectionTestDto>();
+        [TestMethod]
+        public void Should_Correctly_Map_List_Of_Strings()
+        {
+            var sut = BuildAndConfigureFor<ConversionDTO<List<string>, string>>();
+            const string concatenatedValues = "this,will,be,split,to,multiple,strings";
+            int expectedListCount = concatenatedValues.Split(',').Length;
 
-        //    using (var reader = CollectionTestDtoBuilder.BuildReader())
-        //    {
-        //        reader.Read();
-        //        var actual = _sut.Map<CollectionTestDto>(reader);
-        //        Assert.AreEqual(actual.ListOfStrings.Count, CollectionTestDtoBuilder.SplitStrings.Count);
-        //    }
-        //}
+            using (var reader = ConversionDTO<List<string>, string>.BuildReader(concatenatedValues))
+            {
+                reader.Read();
+                var actual = sut.Map<ConversionDTO<List<string>, string>>(reader);
+                Assert.AreEqual(expectedListCount, actual.PropertyToTest.Count);
+                Assert.AreEqual("this", actual.PropertyToTest.First());
+                Assert.AreEqual("split", actual.PropertyToTest[3]);
+                Assert.AreEqual("strings", actual.PropertyToTest.Last());
+            }
+        }
 
-        //[TestMethod]
-        //public void Should_Correctly_Cache_Mapping_Function_For_Class_Property_After_Configure_On_Parent()
-        //{
-        //    var sut = new DataReaderMapper<DataTableReader>();
-        //    sut.Configure<FuncCacheTestDto>();
-        //    using (var reader = FuncCacheTestDtoBuilder.BuildReader())
-        //    {
-        //        reader.Read();
+        [TestMethod]
+        public void Should_Correctly_Cache_Mapping_Function_For_Class_Property_After_Configure_On_Parent()
+        {
+            var sut = BuildAndConfigureFor<ContainsNestedClassesDTO<string, PrimitiveDTO<string>>>();
+            const string expectedValue = "THIS";
 
-        //        var actualNestedOneLevel = sut.Map<NestedFuncDto>(reader);
-        //        var actual2LevelsDeep = sut.Map<AnotherNestedDto>(reader);
+            using (var reader = ContainsNestedClassesDTO<string, PrimitiveDTO<string>>.BuildReader(expectedValue))
+            {
+                reader.Read();
 
-        //        Assert.AreEqual(FuncCacheTestDtoBuilder.NestedClassPropertyExpectedValue, actualNestedOneLevel.Number);
-        //        Assert.AreEqual(FuncCacheTestDtoBuilder.NestedClassPropertyExpectedValue, actual2LevelsDeep.AnotherNumber);
-        //    }
-        //}
-        
+                var theParent = sut.Map<ContainsNestedClassesDTO<string, PrimitiveDTO<string>>>(reader);
+                var actual = sut.Map<PrimitiveDTO<string>>(reader);
+
+                Assert.AreEqual(expectedValue, actual.PropertyToTest);
+                Assert.AreEqual(expectedValue, theParent.NestedPropertyToTest.PropertyToTest);
+            }
+        }
+
 
 
 
