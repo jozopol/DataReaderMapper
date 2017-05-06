@@ -3,14 +3,14 @@ using Benchmarks.Benchmarks;
 
 namespace Benchmarks
 {
-    public class Program
+    public static class Program
     {
         static void Main(string[] args)
         {
-            //BenchmarkRunner.Run<Mapper_Mapping>();
+            BenchmarkRunner.Run<MapperMapping>();
             //BenchmarkRunner.Run<Mapper_Configure>();
             //BenchmarkRunner.Run<Mapper_IEnumerableMapping>();
-            BenchmarkRunner.Run<Mapper_ReaderAccess>();            
+            //BenchmarkRunner.Run<Mapper_ReaderAccess>();            
         }
     }
 }

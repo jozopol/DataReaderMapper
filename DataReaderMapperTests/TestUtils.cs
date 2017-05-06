@@ -1,10 +1,20 @@
-﻿using System.Data;
+﻿using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Linq.Expressions;
 using DataReaderMapper;
 
 namespace DataReaderMapperTests
 {
     public static class TestUtils
     {
+        public static DataReaderMapper<DataTableReader> BuildAndConfigureFor<TDto>(Dictionary<Type, Expression> typeConvertors = null) where TDto : class, new()
+        {
+            var mapper = new DataReaderMapper<DataTableReader>(typeConvertors);
+            mapper.Configure<TDto>();
+            return mapper;
+        }
+
         public static DataTableReader BuildReader<TColumn>(TColumn expectedValue, int numberOfRows)
         {
             var dataTable = new DataTable();
@@ -22,9 +32,21 @@ namespace DataReaderMapperTests
         }
     }
 
-    public class PrimitiveDTO<TProperty>
+    public class PrimitiveDto<TProperty>
     {
         [Mappable("PropertyToTest")]
+        public TProperty PropertyToTest { get; set; }
+
+
+        public static DataTableReader BuildReader(TProperty expectedValue, int numberOfRows = 1)
+        {
+            return TestUtils.BuildReader(expectedValue, numberOfRows);
+        }
+    }
+
+    public class PrimitiveNullableDto<TProperty>
+    {
+        [Mappable("PropertyToTest", useCustomConvertor:false, canBeNull:true)]
         public TProperty PropertyToTest { get; set; }
         
 
@@ -34,7 +56,7 @@ namespace DataReaderMapperTests
         }
     }
 
-    public class ConversionDTO<TProperty, TReaderColumnType>
+    public class ConversionDto<TProperty, TReaderColumnType>
     {
         [Mappable("PropertyToTest", true)]
         public TProperty PropertyToTest { get; set; }
@@ -46,7 +68,7 @@ namespace DataReaderMapperTests
         }
     }
 
-    public class ContainsNestedClassesDTO<TProperty, TNestedProperty> where TNestedProperty : class, new() 
+    public class ContainsNestedClassesDto<TProperty, TNestedProperty> where TNestedProperty : class, new() 
     {
 
         [MappableSource]
@@ -83,13 +105,13 @@ namespace DataReaderMapperTests
         public string AnotherStringProperty { get; set; }
 
         [MappableSource]
-        public PrimitiveDTO<string> NestedWithStringProperty { get; set; }
+        public PrimitiveNullableDto<string> NestedWithStringProperty { get; set; }
 
         [MappableSource]
-        public PrimitiveDTO<string> NestedWithAnotherStringProperty { get; set; }
+        public PrimitiveNullableDto<string> NestedWithAnotherStringProperty { get; set; }
 
         [MappableSource]
-        public ContainsNestedClassesDTO<string, PrimitiveDTO<string>> DoubleNestedClassWithStringProperty { get; set; }
+        public ContainsNestedClassesDto<string, PrimitiveNullableDto<string>> DoubleNestedClassWithStringProperty { get; set; }
 
         public static DataTableReader BuildReader(int numberOfRows = 1)
         {
