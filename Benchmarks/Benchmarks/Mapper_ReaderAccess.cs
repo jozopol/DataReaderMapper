@@ -1,13 +1,15 @@
 ﻿using BenchmarkDotNet.Attributes;
 using DataReaderMapper;
 using System.Data;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Benchmarks.Benchmarks
 {
     [Config(typeof(MappingConfiguration))]
-    public class Mapper_ReaderAccess
+    [SuppressMessage("ReSharper", "UnusedVariable")]
+    public class MapperReaderAccess
     {
-        private DataReaderMapper<DataTableReader> _drm = new DataReaderMapper<DataTableReader>();
+        private readonly DataReaderMapper<DataTableReader> _drm = new DataReaderMapper<DataTableReader>();
         private static DataTable _table;
 
         [Params(10, 100, 500, 5000)]

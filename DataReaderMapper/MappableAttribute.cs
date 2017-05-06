@@ -5,21 +5,15 @@ namespace DataReaderMapper
     [AttributeUsage(AttributeTargets.Property)]
     public class MappableAttribute: Attribute
     {
-        public string ReaderColumnName { get; private set; }
-        public bool UseCustomConvertor { get; private set; }
-        public string CustomConvertorId { get; private set; }
+        public string ReaderColumnName { get; }
+        public bool UseCustomConvertor { get; }
+        public bool CanBeNull { get; }
 
-        public MappableAttribute(string sourceName, bool useCustomConvertor = false)
+        public MappableAttribute(string sourceName, bool useCustomConvertor = false, bool canBeNull = false)
         {
             ReaderColumnName = sourceName;
             UseCustomConvertor = useCustomConvertor;
-        }
-
-        public MappableAttribute(string sourceName, string customConvertorId)
-        {
-            ReaderColumnName = sourceName;
-            CustomConvertorId = customConvertorId;
-            UseCustomConvertor = true;
+            CanBeNull = canBeNull;
         }
     }    
 }
