@@ -90,21 +90,48 @@ namespace DataReaderMapperTests
                 reader.Read();
                 var actual = sut.Map<ContainsNestedClassesDTO<string, PrimitiveDTO<string>>>(reader);
 
-                Assert.AreEqual(expectedValue, actual.NestedProperty.PropertyToTest);
+                Assert.AreEqual(expectedValue, actual.NestedPropertyToTest.PropertyToTest);
             }
         }
 
-        //[TestMethod]
-        //public void Should_Correctly_Map_String_Column_To_Double_Nested_Class_Property()
-        //{
-        //    using (var reader = TestDtoBuilder.BuildReader())
-        //    {
-        //        reader.Read();
-        //        var actual = _sut.Map<TestDto>(reader);
+        [TestMethod]
+        public void Should_Correctly_Map_String_Column_To_Double_Nested_Class_Property()
+        {
+            var sut =
+                BuildAndConfigureFor<
+                    ContainsNestedClassesDTO<string,
+                        ContainsNestedClassesDTO<string, 
+                            PrimitiveDTO<string>>>>();
 
-        //        Assert.AreEqual(TestDtoBuilder.ExpectedStringColumnValue, actual.NestedClass.NestedNestedClass.StringValue);
-        //    }
-        //}
+            const string expectedValue = "2LevelsNestedClass";
+
+            using (var reader = ContainsNestedClassesDTO<string, ContainsNestedClassesDTO<string, PrimitiveDTO<string>>>.BuildReader(expectedValue))
+            {
+                reader.Read();
+                var actual = sut.Map<ContainsNestedClassesDTO<string, ContainsNestedClassesDTO<string, PrimitiveDTO<string>>>>(reader);
+
+                Assert.AreEqual(expectedValue, actual.NestedPropertyToTest.NestedPropertyToTest.PropertyToTest);
+            }
+        }
+
+        [TestMethod]
+        public void Should_Correctly_Map_Class_With_Multiple_Primitive_And_Complex_Properties()
+        {
+            var sut = BuildAndConfigureFor<WithMultiplePrimitiveAndComplexProperties>();
+
+            using (var reader = WithMultiplePrimitiveAndComplexProperties.BuildReader())
+            {
+                reader.Read();
+                var actual = sut.Map<WithMultiplePrimitiveAndComplexProperties>(reader);
+
+                Assert.AreEqual(WithMultiplePrimitiveAndComplexProperties.ExpectedString, actual.StringProperty);
+                Assert.AreEqual(WithMultiplePrimitiveAndComplexProperties.ExpectedString, actual.AnotherStringProperty);
+                Assert.AreEqual(WithMultiplePrimitiveAndComplexProperties.ExpectedInteger, actual.IntegerProperty);
+                Assert.AreEqual(WithMultiplePrimitiveAndComplexProperties.ExpectedString, actual.NestedWithStringProperty.PropertyToTest);
+                Assert.AreEqual(WithMultiplePrimitiveAndComplexProperties.ExpectedString, actual.NestedWithAnotherStringProperty.PropertyToTest);
+                Assert.AreEqual(WithMultiplePrimitiveAndComplexProperties.ExpectedString, actual.DoubleNestedClassWithStringProperty.NestedPropertyToTest.PropertyToTest);
+            }
+        }
 
         [TestMethod]
         public void Should_Correctly_Map_StringAsDateTime()
@@ -243,47 +270,7 @@ namespace DataReaderMapperTests
         //        Assert.AreEqual(FuncCacheTestDtoBuilder.NestedClassPropertyExpectedValue, actual2LevelsDeep.AnotherNumber);
         //    }
         //}
-
-        //[TestMethod]
-        //public void Should_Correctly_Convert_Property_With_Custom_Convertor_Specified_By_ID()
-        //{
-        //    var idConvertors = new Dictionary<string, Expression>() {{ "convertorId=1", (Expression<Func<object, string>>)((object o) => $"Hello World {int.Parse(o.ToString())}" )}};
-
-        //    var sut = new DataReaderMapper<DataTableReader>(null, idConvertors);
-        //    sut.Configure<ConvertorIdTestDto>();
-        //    string expected = $"Hello World {ConvertorIdTestDtoBuilder.NestedClassPropertyExpectedValue}";
-
-        //    using (var reader = ConvertorIdTestDtoBuilder.BuildReader())
-        //    {
-        //        reader.Read();
-
-        //        var actual = sut.Map<ConvertorIdTestDto>(reader);
-        //        string actualMessage = actual.IntegerToBeConvertedToMessage;
-
-        //        Assert.AreEqual(expected, actual.IntegerToBeConvertedToMessage);
-        //    }
-        //}
-
-        //[TestMethod]
-        //public void Should_Give_Priority_To_ID_Convertor_Over_Custom_Type_Convertor()
-        //{
-        //    var idConvertors = new Dictionary<string, Expression> { { "convertorId=1", (Expression<Func<object, string>>)((object o) => $"Hello World {int.Parse(o.ToString())}") } };
-        //    var typeConvertors = new Dictionary<Type, Expression> { { typeof(string), (Expression<Func<object, string>>)((object o) => o.ToString()) } };
-
-        //    var sut = new DataReaderMapper<DataTableReader>(typeConvertors, idConvertors);
-        //    sut.Configure<ConvertorIdTestDto>();
-        //    string expected = $"Hello World {ConvertorIdTestDtoBuilder.NestedClassPropertyExpectedValue}";
-
-        //    using (var reader = ConvertorIdTestDtoBuilder.BuildReader())
-        //    {
-        //        reader.Read();
-
-        //        var actual = sut.Map<ConvertorIdTestDto>(reader);
-        //        string actualMessage = actual.IntegerToBeConvertedToMessage;
-
-        //        Assert.AreEqual(expected, actual.IntegerToBeConvertedToMessage);
-        //    }
-        //}
+        
 
 
 

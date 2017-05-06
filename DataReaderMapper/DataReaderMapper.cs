@@ -103,19 +103,35 @@ namespace DataReaderMapper
             {
                 // targetInstance.SomePropertyInstance
                 var targetsPropertyInstance = Expression.Property(targetInstance, property);
-
                 // targetInstance.SomePropertyInstance = new SomePropertyInstance()
-                var newPropertyInstanceExpression = Expression.Assign(targetsPropertyInstance, Expression.New(property.PropertyType));
-                statements.Add(newPropertyInstanceExpression);
+                //var newPropertyInstanceExpression = Expression.Assign(targetsPropertyInstance, Expression.New(property.PropertyType));
 
-                var assignPropertiesToTargetInstance = BuildNullablePrimitivePropertiesExpressions(property.PropertyType, targetsPropertyInstance, dataReaderParameter, indexerProperty);
-                statements.AddRange(assignPropertiesToTargetInstance);
+                //statements.Add(newPropertyInstanceExpression);
+
+                //var assignPropertiesToTargetInstance = BuildNullablePrimitivePropertiesExpressions(property.PropertyType, targetsPropertyInstance, dataReaderParameter, indexerProperty);
+                //statements.AddRange(assignPropertiesToTargetInstance);
+                var newPropertyInstanceExpression = Expression.Assign(targetsPropertyInstance, TryCache(property, dataReaderParameter, indexerProperty));
+                statements.Add(newPropertyInstanceExpression);
 
                 var setComplexProperties = MapComplexProperties(property.PropertyType, targetsPropertyInstance, dataReaderParameter, indexerProperty);
                 statements.AddRange(setComplexProperties);
             }
 
             return statements;
+        }
+
+        private Expression TryCache(PropertyInfo property, Expression dataReaderParameter, PropertyInfo indexerProperty)
+        {
+            var cachelist = new List<Expression>();
+
+            var targetInstanceParameter = Expression.Variable(property.PropertyType, "TargetInstance.Property");
+            cachelist.Add(Expression.Assign(targetInstanceParameter, Expression.New(property.PropertyType)));
+
+            var assignPropertiesToTargetInstance = BuildNullablePrimitivePropertiesExpressions(property.PropertyType, targetInstanceParameter, dataReaderParameter, indexerProperty);
+            cachelist.AddRange(assignPropertiesToTargetInstance);
+            cachelist.Add(targetInstanceParameter);
+            var variablePropAssign = Expression.Block(targetInstanceParameter.Type, new[] {targetInstanceParameter}, cachelist);
+            return variablePropAssign;
         }
 
         private static IEnumerable<PropertyInfo> GetMappableSourceProperties(Type targetType)
@@ -196,7 +212,7 @@ namespace DataReaderMapper
             if (_typeConvertors.TryGetValue(conversionTargetType, out convertorExpression))            
                 return Expression.Invoke(convertorExpression, sourceToConvertExpression);            
 
-            throw new InvalidOperationException($"The conversion to type {conversionTargetType.FullName} is not supported.");
+            throw new InvalidOperationException($"The conversion to type {conversionTargetType.FullName} is not supported. Check if the convertor for the specified type should be used.");
         }
 
         private static MethodCallExpression ObjectToStringExpression(Expression sourceToConvertExpression)
