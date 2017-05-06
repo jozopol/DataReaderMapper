@@ -1,6 +1,7 @@
 ﻿using BenchmarkDotNet.Attributes;
 using DataReaderMapper;
 using System.Data;
+using Benchmarks.Benchmarks.DTOs;
 
 namespace Benchmarks.Benchmarks
 {

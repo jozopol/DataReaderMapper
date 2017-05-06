@@ -2,6 +2,7 @@
 using DataReaderMapper;
 using System.Collections.Generic;
 using System.Data;
+using Benchmarks.Benchmarks.DTOs;
 
 namespace Benchmarks.Benchmarks
 {

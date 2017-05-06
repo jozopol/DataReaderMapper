@@ -1,6 +1,6 @@
-﻿using Mapping;
+﻿using DataReaderMapper;
 
-namespace Benchmarks.Benchmarks
+namespace Benchmarks.Benchmarks.DTOs
 {
     public class Dto5Prop
     {

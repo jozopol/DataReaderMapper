@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Mapping
+namespace DataReaderMapper
 {
     [AttributeUsage(AttributeTargets.Property)]
     public class MappableAttribute: Attribute
