@@ -37,21 +37,19 @@ namespace DataReaderMapper
 
         public TTarget Map<TTarget>(TReader source) where TTarget : class, new()
         {
-            if (_mapperCache.ContainsKey(typeof(TTarget)))
+            if (!_mapperCache.ContainsKey(typeof(TTarget)))
+                return new TTarget();
+
+            try
             {
-                try
-                {
-                    return GetMapperFunction<TTarget>()(source);
-                }
-                catch (InvalidCastException ex)
-                {
-                    string invokedExpressionDebugView = _mapperCache[typeof(TTarget)].Item2.GetDebugView();
-                    throw new InvalidCastException($"An invalid cast occurred for one of the properties. Check this expression for details: {Environment.NewLine} {invokedExpressionDebugView}", ex);
-                    // log 
-                }
-                
+                return GetMapperFunction<TTarget>()(source);
             }
-            return new TTarget();
+            catch (InvalidCastException ex)
+            {
+                string invokedExpressionDebugView = _mapperCache[typeof(TTarget)].Item2.GetDebugView();
+                throw new InvalidCastException($"An invalid cast occurred for one of the properties. Check this expression for details: {Environment.NewLine} {invokedExpressionDebugView}", ex);
+                // log 
+            }            
         }        
 
         public IEnumerable<TTarget>MapAll<TTarget>(TReader source) where TTarget : class, new()
@@ -59,7 +57,7 @@ namespace DataReaderMapper
             if (!_mapperCache.ContainsKey(typeof(TTarget)))
                 yield break;
 
-            Func<TReader, TTarget> mapperFunction = GetMapperFunction<TTarget>();
+            var mapperFunction = GetMapperFunction<TTarget>();
             while (source.Read())
             {
                 yield return mapperFunction(source);
@@ -68,7 +66,7 @@ namespace DataReaderMapper
 
         private Func<TReader, TTarget> GetMapperFunction<TTarget>() where TTarget : class, new()
         {
-            return ((Func<TReader, TTarget>)_mapperCache[typeof(TTarget)].Item1);
+            return (Func<TReader, TTarget>)_mapperCache[typeof(TTarget)].Item1;
         }
 
         private Tuple<Delegate, Expression> BuildMapperExpression<TTarget>() where TTarget : class, new()
@@ -98,7 +96,7 @@ namespace DataReaderMapper
             return Tuple.Create<Delegate, Expression>(lambda.Compile(), lambda);
         }
 
-        private List<Expression> MapComplexProperties(Type targetType, Expression targetInstance, Expression dataReaderParameter, PropertyInfo indexerProperty)
+        private IEnumerable<Expression> MapComplexProperties(Type targetType, Expression targetInstance, Expression dataReaderParameter, PropertyInfo indexerProperty)
         {
             var statements = new List<Expression>();
             foreach (var property in targetType.GetRuntimeProperties().Where(x => x.IsDefined(typeof(MappableSourceAttribute), true)))
@@ -122,8 +120,11 @@ namespace DataReaderMapper
 
         private void CacheComplexPropertySetterExpression(Expression dataReaderParameter, Type propertyType, Expression setPrimitivePropertiesExpression)
         {
-            // we should cache each Func<IDataReader, T> where T != TTarget and wher T is a nested complex property of TTarget or its other complex properties
-            // we can use it later (if we want to map only the nested classes for example)
+            if (_mapperCache.ContainsKey(propertyType))            
+                return;
+
+                // we should cache each Func<IDataReader, T> where T != TTarget and wher T is a nested complex property of TTarget or its other complex properties
+                // we can use it later (if we want to map only the nested classes for example)
             var lambda = Expression.Lambda(setPrimitivePropertiesExpression, (ParameterExpression)dataReaderParameter);
             _mapperCache.Add(propertyType, Tuple.Create<Delegate, Expression>(lambda.Compile(), lambda));
         }

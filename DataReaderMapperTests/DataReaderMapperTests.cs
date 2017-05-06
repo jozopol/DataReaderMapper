@@ -10,6 +10,7 @@ using static DataReaderMapper.Tests.CollectionTestDto;
 using static DataReaderMapper.Tests.FuncCacheTestDto;
 using static DataReaderMapper.Tests.ConvertorIdTestDto;
 using System.Linq.Expressions;
+using static DataReaderMapper.Tests.NullablePropertyTestDto;
 
 namespace DataReaderMapper.Tests
 {
@@ -243,9 +244,52 @@ namespace DataReaderMapper.Tests
             }
         }
 
+        [TestMethod]
+        public void Should_Correctly_Mapp_Null_For_Nullable_Property()
+        {
+            var sut = new DataReaderMapper<DataTableReader>();
+            sut.Configure<NullablePropertyTestDto>();
+            using (var reader = NullablePropertyTestDtoBuilder.BuildReader())
+            {
+                reader.Read();
+
+                var dtoWithNullableProperty = sut.Map<NullablePropertyTestDto>(reader);
+
+                Assert.AreEqual(NullablePropertyTestDtoBuilder.NullString, dtoWithNullableProperty.NullableProperty);
+            }
+        }
+
     }
 
     #region DTOsAndReaderBuilders
+    public class NullablePropertyTestDto
+    {
+        [Mappable("NullableColumn")]
+        public string NullableProperty { get; set; }
+
+        internal static class NullablePropertyTestDtoBuilder
+        {
+            internal static DBNull NullableColumnExpectedValue = DBNull.Value;
+            internal const string NullString = null;
+
+            internal static DataTableReader BuildReader(int numberOfRows = 1)
+            {
+                var dataTable = new DataTable();
+                dataTable.Columns.Add(new DataColumn("NullableColumn", typeof(string)));
+
+                for (int i = 0; i < numberOfRows; i++)
+                {
+                    var dataRow = dataTable.NewRow();
+                    dataRow["NullableColumn"] = NullString;
+
+                    dataTable.Rows.Add(dataRow);
+                }
+
+                return dataTable.CreateDataReader();
+            }
+        }
+    }
+
     public class ConvertorIdTestDto
     {
         [Mappable("IntegerColumn", "convertorId=1")]
