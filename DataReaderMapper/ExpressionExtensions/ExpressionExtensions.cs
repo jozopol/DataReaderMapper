@@ -1,7 +1,7 @@
 ﻿using System.Linq.Expressions;
 using System.Reflection;
 
-namespace DataReaderMapper
+namespace DataReaderMapper.ExpressionExtensions
 {
     public static class ExpressionExtensions
     {
@@ -12,7 +12,10 @@ namespace DataReaderMapper
                 return null;
 
             var propertyInfo = typeof(Expression).GetProperty("DebugView", BindingFlags.Instance | BindingFlags.NonPublic);
-            return propertyInfo.GetValue(exp) as string;
+            if (propertyInfo != null)
+                return propertyInfo.GetValue(exp) as string;
+
+            return "An unexpected error when reading the DebugView Property of an Expression.";
         }
     }
 }

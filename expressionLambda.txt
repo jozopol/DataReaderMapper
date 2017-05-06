@@ -1,0 +1,28 @@
+".Lambda 'TReader->TTarget lambda'<System.Func`2[System.Data.DataTableReader,DataReaderMapper.Tests.TestDto]>(System.Data.DataTableReader $TReaderParameter)
+{ 
+   .Block(DataReaderMapper.Tests.TestDto $RootTargetInstance) 
+   { 
+    $RootTargetInstance = .New DataReaderMapper.Tests.TestDto()
+        {  
+            IntegerAsString = .Invoke (.Lambda #Lambda1<System.Func`2[System.String,System.Int32]>)(.Call ($TReaderParameter.Item[\"IntegerAsString\"]).ToString()),
+            StringValue = (System.String)$TReaderParameter.Item[\"StringColumn\"],
+            IntegerValue = (System.Int32)$TReaderParameter.Item[\"IntegerColumn\"],
+            BooleanValue = (System.Boolean)$TReaderParameter.Item[\"BooleanColumn\"],
+            DateValue = (System.DateTime)$TReaderParameter.Item[\"DateTimeColumn\"],
+            DateTimeAsStringColumn = .Invoke (.Lambda #Lambda2<System.Func`2[System.String,System.DateTime]>)(.Call ($TReaderParameter.Item[\"DateTimeAsStringColumn\"]).ToString())
+        };
+     
+     $RootTargetInstance.NestedClass = .New DataReaderMapper.Tests.TestDto+NestedTestDto()
+     {StringValue = (System.String)$TReaderParameter.Item[\"NestedStringColumn\"]};
+     
+     ($RootTargetInstance.NestedClass).NestedNestedClass = .New DataReaderMapper.Tests.TestDto+NestedTestDto+NestedNestedTestDto()
+     {StringValue = (System.String)$TReaderParameter.Item[\"NestedNestedStringColumn\"]};
+        
+    $RootTargetInstance
+    }
+}
+.Lambda #Lambda1<System.Func`2[System.String,System.Int32]>(System.String $s)
+ {.Call System.Int32.Parse($s)}
+
+.Lambda #Lambda2<System.Func`2[System.String,System.DateTime]>(System.String $s) 
+{.Call System.DateTime.Parse($s)}"

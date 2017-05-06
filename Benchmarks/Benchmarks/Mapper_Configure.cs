@@ -1,13 +1,14 @@
 ﻿using BenchmarkDotNet.Attributes;
 using DataReaderMapper;
 using System.Data;
+using Benchmarks.Benchmarks.DTOs;
 
 namespace Benchmarks.Benchmarks
 {
     [Config(typeof(ConfigureConfiguration))]
-    public partial class Mapper_Configure
+    public class MapperConfigure
     {
-        private DataReaderMapper<DataTableReader> _mapper = new DataReaderMapper<DataTableReader>();
+        private readonly DataReaderMapper<DataTableReader> _mapper = new DataReaderMapper<DataTableReader>();
 
         [Benchmark(Baseline = true)]
         public void Configure1()
