@@ -5,11 +5,11 @@ A mapper for classes which implement IDataReader interface. DataReaderMapper map
 
 Properties (primitive/nested classes) excluding collection properties<br>
 Customizable convertor expressions for specified output types (via Dictionary<Type, Expression> constructor injection)<br>
+Customizable convertor expressions for specific IDs (via Dictionary<string, Expression> constructor injection)<br>
 <br>
 
 <b>TODO list:</b><br>
-property specific convertors<br>
-collection properties<br><br>
+need more ideas...
 
 <h2> Benchmarks </h2>
 
