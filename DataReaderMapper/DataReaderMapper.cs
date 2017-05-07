@@ -39,7 +39,7 @@ namespace DataReaderMapper
             {
                 string invokedExpressionDebugView = _mapperCache[typeof(TTarget)].Item2.GetDebugView();
                 throw new InvalidCastException(
-                    $"An invalid cast occurred for one of the properties. Check this expression for details: {Environment.NewLine} {invokedExpressionDebugView}",
+                    $"An invalid cast occurred for one of the properties. Make sure that properties which need to be converted via custom convertors have their mappable attribute properly set. Check this expression for details: {Environment.NewLine} {invokedExpressionDebugView}",
                     ex);
             }
         }
