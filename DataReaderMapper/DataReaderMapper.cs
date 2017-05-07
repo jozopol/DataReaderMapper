@@ -70,12 +70,11 @@ namespace DataReaderMapper
             var expressionBody = BuildExpressionBlock(targetInstanceParameter.Type, targetInstanceParameter,
                 dataReaderParameter, indexerProperty);
 
-            var lambda = Expression.Lambda<Func<TReader, TTarget>>(expressionBody, "TReader->TTarget lambda",
-                new[] {dataReaderParameter});
+            var lambda = Expression.Lambda<Func<TReader, TTarget>>(expressionBody, true, dataReaderParameter);
             _mapperCache[typeof(TTarget)] = Tuple.Create<Delegate, Expression>(lambda.Compile(), lambda);
         }
 
-        private Expression BuildPropertyInitializerBlock(PropertyInfo targetProperty, Expression dataReaderParameter,
+        private Expression BuildPropertyInitializerBlock(PropertyInfo targetProperty, ParameterExpression dataReaderParameter,
             PropertyInfo indexerProperty)
         {
             if (_mapperCache.ContainsKey(targetProperty.PropertyType))
@@ -90,7 +89,7 @@ namespace DataReaderMapper
         }
 
         private BlockExpression BuildExpressionBlock(Type targetType, ParameterExpression targetInstanceParameter,
-            Expression dataReaderParameter, PropertyInfo indexerProperty)
+            ParameterExpression dataReaderParameter, PropertyInfo indexerProperty)
         {
             var expressionBlockBuilder = new ExpressionBlockBuilder(targetInstanceParameter.Type, new[] {targetInstanceParameter});
 
@@ -105,7 +104,7 @@ namespace DataReaderMapper
         }
 
         private IEnumerable<Expression> BuildComplexPropertyExpressions(Type targetType, Expression targetInstance,
-            Expression dataReaderParameter, PropertyInfo indexerProperty)
+            ParameterExpression dataReaderParameter, PropertyInfo indexerProperty)
         {
             try
             {
@@ -141,10 +140,7 @@ namespace DataReaderMapper
                 Expression assignConvertedValue;
                 if (mappableAttribute.CanBeNull)
                 {
-                    var getOrdinalExpression = GetOrdinalExpression(dataReaderParameter, mappableAttribute);
-                    var isDbNullMethodExpression = IsDbNullExpression(dataReaderParameter, getOrdinalExpression);
-                    var ifNullThenDefaultElseValueExpression = Expression.Condition(isDbNullMethodExpression,
-                        Expression.Constant(null, property.PropertyType), convertExpression);
+                    var ifNullThenDefaultElseValueExpression = NullableConvertExpression(dataReaderParameter, mappableAttribute, property, convertExpression);
 
                     assignConvertedValue = Expression.Assign(targetsPropertyInstance, ifNullThenDefaultElseValueExpression);
                 }
@@ -156,14 +152,14 @@ namespace DataReaderMapper
             }
         }
 
-        private void SaveToCache(Type targetType, Expression expression, Expression dataReaderParameter)
+        private void SaveToCache(Type targetType, Expression expression, ParameterExpression dataReaderParameter)
         {
             if (_mapperCache.ContainsKey(targetType))
                 return;
 
             // we should cache each Func<IDataReader, T> where T != TTarget and where T is a nested complex targetProperty of TTarget or its other complex properties
             // we can use it later (if we want to map only the nested classes for example)
-            var lambda = Expression.Lambda(expression, (ParameterExpression) dataReaderParameter);
+            var lambda = Expression.Lambda(expression, true, dataReaderParameter);
             _mapperCache.Add(targetType, Tuple.Create(lambda.Compile(), expression));
         }
 
@@ -183,6 +179,16 @@ namespace DataReaderMapper
         {
             return Expression.MakeIndex(dataReaderParameter, indexerProperty,
                 new[] {Expression.Constant(mappableAttribute.ReaderColumnName)});
+        }
+
+        private static ConditionalExpression NullableConvertExpression(Expression dataReaderParameter,
+            MappableAttribute mappableAttribute, PropertyInfo property, Expression convertExpression)
+        {
+            var getOrdinalExpression = GetOrdinalExpression(dataReaderParameter, mappableAttribute);
+            var isDbNullMethodExpression = IsDbNullExpression(dataReaderParameter, getOrdinalExpression);
+            var ifNullThenNullElseValueExpression = Expression.Condition(isDbNullMethodExpression,
+                Expression.Constant(null, property.PropertyType), convertExpression);
+            return ifNullThenNullElseValueExpression;
         }
 
         private static MethodCallExpression IsDbNullExpression(Expression dataReaderParameter,
