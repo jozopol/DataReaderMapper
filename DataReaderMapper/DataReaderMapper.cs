@@ -10,8 +10,8 @@ namespace DataReaderMapper
 {
     public class DataReaderMapper<TReader> where TReader : IDataReader
     {
-        private readonly Dictionary<Type, Tuple<Delegate, Expression>> _mapperCache =
-            new Dictionary<Type, Tuple<Delegate, Expression>>();
+        private readonly Dictionary<Type, (Delegate MappingFunction, Expression Expression)> _mapperCache =
+            new Dictionary<Type, (Delegate MappingFunction, Expression Expression)>();
 
         private readonly Dictionary<Type, Expression> _typeConvertors;
 
@@ -37,7 +37,7 @@ namespace DataReaderMapper
             }
             catch (InvalidCastException ex)
             {
-                string invokedExpressionDebugView = _mapperCache[typeof(TTarget)].Item2.GetDebugView();
+                string invokedExpressionDebugView = _mapperCache[typeof(TTarget)].Expression.GetDebugView();
                 throw new InvalidCastException(
                     $"An invalid cast occurred for one of the properties. Make sure that properties which need to be converted via custom convertors have their mappable attribute properly set. Check this expression for details: {Environment.NewLine} {invokedExpressionDebugView}",
                     ex);
@@ -56,7 +56,7 @@ namespace DataReaderMapper
 
         private Func<TReader, TTarget> GetMapperFunction<TTarget>() where TTarget : class, new()
         {
-            return (Func<TReader, TTarget>) _mapperCache[typeof(TTarget)].Item1;
+            return (Func<TReader, TTarget>) _mapperCache[typeof(TTarget)].MappingFunction;
         }
 
         private void BuildMapperExpression<TTarget>() where TTarget : class, new()
@@ -71,15 +71,12 @@ namespace DataReaderMapper
                 dataReaderParameter, indexerProperty);
 
             var lambda = Expression.Lambda<Func<TReader, TTarget>>(expressionBody, true, dataReaderParameter);
-            _mapperCache[typeof(TTarget)] = Tuple.Create<Delegate, Expression>(lambda.Compile(), lambda);
+            _mapperCache[typeof(TTarget)] = (MappingFunction: lambda.Compile(), Expression: lambda);
         }
 
         private Expression BuildPropertyInitializerBlock(PropertyInfo targetProperty, ParameterExpression dataReaderParameter,
             PropertyInfo indexerProperty)
         {
-            if (_mapperCache.ContainsKey(targetProperty.PropertyType))
-                return _mapperCache[targetProperty.PropertyType].Item2;
-
             var propertyVariable = Expression.Variable(targetProperty.PropertyType, "variable");
             var expressionBlock = BuildExpressionBlock(targetProperty.PropertyType, propertyVariable,
                 dataReaderParameter, indexerProperty);
@@ -160,7 +157,7 @@ namespace DataReaderMapper
             // we should cache each Func<IDataReader, T> where T != TTarget and where T is a nested complex targetProperty of TTarget or its other complex properties
             // we can use it later (if we want to map only the nested classes for example)
             var lambda = Expression.Lambda(expression, true, dataReaderParameter);
-            _mapperCache.Add(targetType, Tuple.Create(lambda.Compile(), expression));
+            _mapperCache.Add(targetType, (lambda.Compile(), expression));
         }
 
         private static IEnumerable<PropertyInfo> GetMappableSourceProperties(Type targetType)
